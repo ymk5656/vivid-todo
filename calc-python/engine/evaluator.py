@@ -4,6 +4,7 @@ import re
 import sympy
 import math
 from typing import Literal
+from sympy.parsing.sympy_parser import parse_expr, standard_transformations
 
 
 class CalcError(ValueError):
@@ -48,10 +49,9 @@ def evaluate(expression: str, ans: float | None, angle_mode: Literal["rad", "deg
     if not expr:
         raise CalcSyntaxError("Empty expression")
 
-    # Reject consecutive arithmetic operators like "2++3", "2--3", "2+-3".
-    # We allow "**" (power) by first replacing it with a placeholder, then checking.
-    _check = expr.replace("**", "")
-    if re.search(r'[+\-*/]{2,}', _check):
+    # Reject consecutive additive operators like "2++3", "2--3", "2+-3", "2-+3".
+    # We intentionally allow "2*-3" and "2/-3" (multiply/divide by negative).
+    if re.search(r'[+\-]{2,}', expr):
         raise CalcSyntaxError(f"Invalid operator sequence in expression: {expr}")
 
     # Substitute Ans token
@@ -73,14 +73,26 @@ def evaluate(expression: str, ans: float | None, angle_mode: Literal["rad", "deg
         "factorial": lambda x: calc_factorial(float(x)),
     }
 
+    # Build a safe global_dict: start from sympy's namespace, then lock down
+    # __builtins__ so that Python built-ins (eval, exec, __import__, open, …)
+    # are not accessible inside the eval() that parse_expr uses internally.
+    _global_dict: dict = {}
+    exec("from sympy import *", _global_dict)  # noqa: S102
+    _global_dict["__builtins__"] = {}
+
     try:
-        result = sympy.sympify(expr, locals=local_dict)
+        result = parse_expr(
+            expr,
+            local_dict=local_dict,
+            global_dict=_global_dict,
+            transformations=standard_transformations,
+        )
 
         # Check for symbolic infinities / complex infinity before evalf()
         # sympy represents 1/0 as zoo (complex infinity) or oo (real infinity)
         if result is sympy.zoo or result == sympy.zoo:
             raise CalcDivisionByZeroError("Division by zero")
-        if result is sympy.oo or result == sympy.oo or result is -sympy.oo or result == -sympy.oo:
+        if result == sympy.oo or result == -sympy.oo:
             raise CalcDivisionByZeroError("Result is infinite")
 
         # result may be a plain Python float (when lambdas return floats directly)
@@ -93,11 +105,11 @@ def evaluate(expression: str, ans: float | None, angle_mode: Literal["rad", "deg
         raise
     except ZeroDivisionError:
         raise CalcDivisionByZeroError("Division by zero")
-    except (sympy.SympifyError, TypeError, ValueError, AttributeError) as e:
+    except (sympy.SympifyError, sympy.parsing.sympy_parser.TokenError, TypeError, ValueError, AttributeError, SyntaxError) as e:
         raise CalcSyntaxError(f"Invalid expression: {e}") from e
 
     # Guard against NaN
-    if value != value:  # NaN check (NaN != NaN is always True)
+    if math.isnan(value):
         raise CalcSyntaxError("Expression produced an invalid result")
 
     if math.isinf(value):

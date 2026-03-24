@@ -19,13 +19,14 @@ def test_evaluate_ok(expr, ans, mode, expected):
     result = evaluate(expr, ans=ans, angle_mode=mode)
     assert math.isclose(result, expected, rel_tol=1e-9, abs_tol=1e-9)
 
-@pytest.mark.parametrize("expr,exc", [
-    ("1/0",       CalcDivisionByZeroError),
-    ("sqrt(-1)",  CalcDomainError),
-    ("log(-5)",   CalcDomainError),
-    ("2++3",      CalcSyntaxError),
-    ("abc",       CalcSyntaxError),
+@pytest.mark.parametrize("expr,mode,exc", [
+    ("1/0",       "rad", CalcDivisionByZeroError),
+    ("sqrt(-1)",  "rad", CalcDomainError),
+    ("log(-5)",   "rad", CalcDomainError),
+    ("2++3",      "rad", CalcSyntaxError),
+    ("abc",       "rad", CalcSyntaxError),
+    ("tan(90)",   "deg", CalcDomainError),
 ])
-def test_evaluate_errors(expr, exc):
+def test_evaluate_errors(expr, mode, exc):
     with pytest.raises(exc):
-        evaluate(expr, ans=None, angle_mode="rad")
+        evaluate(expr, ans=None, angle_mode=mode)
