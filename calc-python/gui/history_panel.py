@@ -1,0 +1,3 @@
+"""History display panel."""
+
+pass
