@@ -11,6 +11,10 @@ from engine.formatter import format_result
     (1.23456789012345, "1.23456789012"),
     (1e-10,        "1e-10"),
     (0.0,          "0"),
+    (-5.0,         "-5"),
+    (-2.5,         "-2.5"),
+    (-1e13,        "-1e+13"),
+    (-1e-10,       "-1e-10"),
 ])
 def test_format_result(value, expected):
     assert format_result(value) == expected
