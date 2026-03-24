@@ -58,7 +58,7 @@ BUTTON_DEFS = [
     ButtonDef("2",   5, 1, "digit",    "on_digit", "2"),
     ButtonDef("3",   5, 2, "digit",    "on_digit", "3"),
     ButtonDef("−",   5, 3, "operator", "on_operator", "-"),
-    ButtonDef("+/-", 6, 0, "special",  "on_operator", "-"),
+    ButtonDef("+/-", 6, 0, "special",  "on_negate"),
     ButtonDef("0",   6, 1, "digit",    "on_digit", "0"),
     ButtonDef(".",   6, 2, "digit",    "on_digit", "."),
     ButtonDef("+",   6, 3, "operator", "on_operator", "+"),

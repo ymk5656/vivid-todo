@@ -23,9 +23,10 @@ def test_evaluate_ok(expr, ans, mode, expected):
     ("1/0",       "rad", CalcDivisionByZeroError),
     ("sqrt(-1)",  "rad", CalcDomainError),
     ("log(-5)",   "rad", CalcDomainError),
-    ("2++3",      "rad", CalcSyntaxError),
-    ("abc",       "rad", CalcSyntaxError),
-    ("tan(90)",   "deg", CalcDomainError),
+    ("2++3",          "rad", CalcSyntaxError),
+    ("abc",           "rad", CalcSyntaxError),
+    ("tan(90)",       "deg", CalcDomainError),
+    ("factorial(1000)", "rad", CalcDomainError),
 ])
 def test_evaluate_errors(expr, mode, exc):
     with pytest.raises(exc):

@@ -7,6 +7,8 @@ from pathlib import Path
 
 MAX_HISTORY = 100
 
+_DEFAULT_HISTORY_PATH = Path(__file__).resolve().parent.parent / "history.json"
+
 
 @dataclass
 class HistoryEntry:
@@ -16,8 +18,8 @@ class HistoryEntry:
 
 
 class HistoryStore:
-    def __init__(self, path: Path = Path("history.json")):
-        self._path = Path(path)
+    def __init__(self, path: Path | None = None):
+        self._path = Path(path) if path is not None else _DEFAULT_HISTORY_PATH
 
     def load(self) -> list[HistoryEntry]:
         if not self._path.exists():

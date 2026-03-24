@@ -105,6 +105,8 @@ def evaluate(expression: str, ans: float | None, angle_mode: Literal["rad", "deg
         raise
     except ZeroDivisionError:
         raise CalcDivisionByZeroError("Division by zero")
+    except OverflowError:
+        raise CalcDomainError("Result too large to display")
     except (sympy.SympifyError, sympy.parsing.sympy_parser.TokenError, TypeError, ValueError, AttributeError, SyntaxError) as e:
         raise CalcSyntaxError(f"Invalid expression: {e}") from e
 

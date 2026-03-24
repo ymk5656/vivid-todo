@@ -30,7 +30,7 @@ def format_result(value: float, max_digits: int = 12) -> str:
 
     # Check if we need scientific notation BEFORE integer snap
     abs_val = abs(rounded)
-    use_scientific = abs_val != 0 and (abs_val >= 1e12 or abs_val < 1e-9)
+    use_scientific = abs_val != 0 and (abs_val >= 1e12 or abs_val < 1e-8)
 
     if use_scientific:
         # Use scientific notation for very large or very small numbers

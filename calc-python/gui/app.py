@@ -88,6 +88,14 @@ class App(tk.Tk):
         self._state.backspace()
         self._refresh_display()
 
+    def on_negate(self) -> None:
+        """Prepend a minus sign, or wrap expression in -(...)."""
+        if not self._state.expression:
+            self._state.push_char("-")
+        else:
+            self._state.expression = f"-({self._state.expression})"
+        self._refresh_display()
+
     def on_toggle_mode(self) -> None:
         self._state.toggle_angle_mode()
         if hasattr(self, '_mode_button'):
