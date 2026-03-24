@@ -7,6 +7,7 @@ from engine.formatter import format_result
 from state.calculator_state import CalculatorState
 from state.history_store import HistoryStore
 from gui.display import DisplayFrame
+from gui.button_panel import ButtonPanel
 
 
 class App(tk.Tk):
@@ -22,7 +23,10 @@ class App(tk.Tk):
         self._display = DisplayFrame(self)
         self._display.pack(fill="x")
 
-        # Button and history panels will be wired in Tasks 7 & 8
+        self._btn_panel = ButtonPanel(self, self)
+        self._btn_panel.pack(fill="both", expand=True, padx=8, pady=8)
+
+        # History panel will be wired in Task 8
         self.bind("<Key>", self._on_keypress)
         self._refresh_display()
 
