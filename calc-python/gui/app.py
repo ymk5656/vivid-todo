@@ -8,6 +8,7 @@ from state.calculator_state import CalculatorState
 from state.history_store import HistoryStore
 from gui.display import DisplayFrame
 from gui.button_panel import ButtonPanel
+from gui.history_panel import HistoryPanel
 
 
 class App(tk.Tk):
@@ -21,12 +22,18 @@ class App(tk.Tk):
         self._history = HistoryStore(Path(__file__).parent.parent / "history.json")
 
         self._display = DisplayFrame(self)
-        self._display.pack(fill="x")
+        self._display.grid(row=0, column=0, columnspan=2, sticky="ew")
 
         self._btn_panel = ButtonPanel(self, self)
-        self._btn_panel.pack(fill="both", expand=True, padx=8, pady=8)
+        self._btn_panel.grid(row=1, column=0, sticky="nsew", padx=(8, 4), pady=8)
 
-        # History panel will be wired in Task 8
+        self._history_panel = HistoryPanel(self, self._history, self.on_history_select)
+        self._history_panel.grid(row=1, column=1, sticky="nsew", padx=(4, 8), pady=8)
+
+        self.columnconfigure(0, weight=3)
+        self.columnconfigure(1, weight=2)
+        self.rowconfigure(1, weight=1)
+
         self.bind("<Key>", self._on_keypress)
         self._refresh_display()
 
