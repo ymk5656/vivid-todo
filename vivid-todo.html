@@ -221,6 +221,15 @@
       margin-left: var(--space-sm);
     }
 
+    /* Task date styling */
+    .task-date {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      margin-left: auto;
+      padding-left: var(--space-sm);
+      white-space: nowrap;
+    }
+
     /* Add 🔥 emoji via CSS for important badge */
     .priority-badge::before {
       content: '🔥';
@@ -399,10 +408,12 @@
               (task.important ? ' important' : '') +
               (task.completed ? ' completed' : '');
             card.dataset.id = task.id;
-            card.innerHTML = `
+              const dateStr = task.createdAt ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+              card.innerHTML = `
               <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
               <div class="task-content">
                 <span class="task-text">${escapeHtml(task.text)}</span>
+                <span class="task-date">${dateStr}</span>
                 ${task.important ? '<span class="priority-badge">🔥 Important</span>' : ''}
               </div>
               <button class="delete-btn" title="Delete task">✕</button>
