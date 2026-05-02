@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230f172a'/><text y='.9em' font-size='80' text-anchor='middle' x='50' fill='%2322d3ee'>✓</text></svg>">
+    <title>Vivid To-Do</title>
+<style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      min-height: 100vh;
+      margin: 0;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+      
+
+      /* Global box-sizing to prevent overflow */
+      * {
+        box-sizing: border-box;
+      }
+
+      /* App container wrapper (FIX-5) */
+      .app-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px 16px;
+        box-sizing: border-box;
+      }
+      :root {
+        /* Colors (dark gradient) */
+        --bg-gradient-start: #0f0f23;
+        --bg-gradient-end: #1a1a3e;
+        --surface-glass: rgba(255, 255, 255, 0.08);
+        --surface-glass-border: rgba(255, 255, 255, 0.15);
+        --text-primary: #f0f0f5;
+        --text-secondary: #a0a0b8;
+        --accent-cyan: #22d3ee;
+        --accent-blue: #3b82f6;
+        --accent-purple: #a855f7;
+        --priority-orange: #f97316;
+        --important-accent: #f97316;
+        --important-bg: rgba(249, 115, 22, 0.15);
+        --danger-red: #ef4444;
+        --success-green: #22c55e;
+
+        /* Spacing scale (rem) - 6 steps */
+        --space-xs: 0.25rem;
+        --space-sm: 0.5rem;
+        --space-md: 0.75rem;
+        --space-lg: 1rem;
+        --space-xl: 1.5rem;
+        --space-2xl: 3rem;
+
+    /* Typography scale (rem) - 6 steps */
+        --text-xs: 0.75rem;
+        --text-sm: 0.875rem;
+        --text-md: 1rem;
+        --text-lg: 1.25rem;
+        --text-xl: 1.5rem;
+        --text-2xl: 1.75rem;
+        --text-3xl: 1.875rem;
+        --text-base: 1rem;
+
+        /* Font weights */
+        --weight-normal: 400;
+        --weight-medium: 500;
+        --weight-semibold: 600;
+        --weight-bold: 700;
+
+        /* Border radius (rounded corners) - 5 steps */
+        --radius-sm: 0.375rem;
+        --radius-md: 0.75rem;
+        --radius-lg: 1rem;
+        --radius-xl: 1.25rem;
+        --radius-2xl: 1.5rem;
+
+        /* Shadows */
+        --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
+        --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.2);
+
+        /* Animations / transitions */
+        --transition-fast: 150ms ease;
+        --transition-normal: 250ms ease;
+        --transition-slow: 400ms ease;
+      }
+    /* Task Card base styles (Wave 2) */
+    /* Task card base styles */
+    .task-card {
+      background: rgba(30, 41, 59, 0.6);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--surface-glass-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-md) var(--space-lg);
+      margin-bottom: var(--space-md);
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      box-shadow: var(--shadow-card);
+      /* Animation */
+      animation: slideUp 0.3s ease forwards, fadeIn 0.3s ease forwards;
+      opacity: 0;
+    }
+
+        /* New entry animations (fadeIn and fadeOut) */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(0.95); }
+    }
+    /* Media queries moved to end of style block for consistency */
+
+    /* Staggered delays for multiple task cards (6+ as 0.3s baseline) */
+    .task-card:nth-child(1) { animation-delay: 0s; }
+    .task-card:nth-child(2) { animation-delay: 0.05s; }
+    .task-card:nth-child(3) { animation-delay: 0.1s; }
+    .task-card:nth-child(4) { animation-delay: 0.15s; }
+    .task-card:nth-child(5) { animation-delay: 0.2s; }
+    .task-card:nth-child(n+6) { animation-delay: 0.3s; }
+
+    /* Completion animation hook - JS will toggle .completing */
+    .task-card.completing {
+      animation: fadeOut 0.3s ease forwards;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .task-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Important variant (strong visual emphasis) */
+    .task-card.important {
+      border-left: 4px solid var(--priority-orange);
+      background: rgba(249, 115, 22, 0.08);
+      padding: var(--space-lg) var(--space-xl);
+      box-shadow: 0 4px 20px rgba(249, 115, 22, 0.15);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* Checkbox styles - mobile friendly touch target */
+    .task-checkbox {
+      width: 28px;
+      height: 28px;
+      accent-color: var(--accent-cyan);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* Task content and text */
+    .task-content {
+      flex: 1;
+      min-width: 0;
+    }
+    /* Checkbox hover / checked state polish */
+    .task-checkbox:hover {
+      cursor: pointer;
+      transform: scale(1.1);
+    }
+    .task-checkbox:checked {
+      accent-color: var(--success-green);
+    }
+
+    .task-text {
+      font-size: var(--text-base);
+      color: var(--text-primary);
+      transition: opacity var(--transition-normal), text-decoration var(--transition-normal);
+    }
+
+    /* font-size/font-weight moved to the card itself; keep task text default */
+    /* Completed task styles (enhanced) */
+    .task-card.completed {
+      opacity: 0.6;
+      transition: opacity var(--transition-normal);
+    }
+    .task-card.completed .task-text {
+      text-decoration: line-through;
+      text-decoration-color: var(--text-secondary);
+      opacity: 0.7;
+      font-style: italic;
+    }
+    .task-card.completed:hover {
+      opacity: 0.8;
+    }
+    .task-card.completed .priority-badge {
+      display: none;
+    }
+
+    
+    /* Priority badge (for important tasks) */
+    .priority-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-xs);
+      padding: var(--space-xs) var(--space-sm);
+      background: rgba(249, 115, 22, 0.2);
+      color: var(--important-accent);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-xs);
+      font-weight: var(--weight-semibold);
+      margin-left: var(--space-sm);
+    }
+
+    /* Add 🔥 emoji via CSS for important badge */
+    .priority-badge::before {
+      content: '🔥';
+      font-size: var(--text-sm);
+    }
+
+    /* Delete button - mobile friendly touch target */
+    .delete-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: var(--text-lg);
+      cursor: pointer;
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-sm);
+      transition: color var(--transition-fast), background var(--transition-fast);
+      flex-shrink: 0;
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .delete-btn:hover {
+      color: var(--danger-red);
+      background: rgba(239, 68, 68, 0.15);
+      transform: scale(1.1);
+    }
+    .delete-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Refine header typography */
+    header h1 {
+      font-size: var(--text-3xl);
+      font-weight: var(--weight-bold);
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: var(--space-sm);
+    }
+
+    header p {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+      letter-spacing: 0.02em;
+      color: var(--text-secondary);
+    }
+
+    /* Input text refinement - 16px prevents zoom on mobile */
+    #taskInput {
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: var(--weight-normal);
+      line-height: 1.5;
+    }
+    #taskInput:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.3);
+      transform: translateY(-1px);
+    }
+
+    /* Task text typography */
+    .task-text {
+      font-size: var(--text-base);
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    /* font-size/font-weight on text moved to card; no overrides here */
+
+    /* Button typography */
+    #addBtn {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-semibold);
+      letter-spacing: 0.01em;
+      text-transform: none;
+    }
+    #addBtn:hover {
+      transform: translateY(-2px) scale(1.04);
+      box-shadow: 0 6px 20px rgba(34, 211, 238, 0.4);
+    }
+    #addBtn:active {
+      transform: translateY(0) scale(0.95);
+      box-shadow: 0 2px 8px rgba(34, 211, 238, 0.3);
+    }
+
+    .delete-btn {
+      font-size: var(--text-sm);
+    }
+
+    /* Priority badge typography block removed; handled by base styles above. */
+    /* Completion animation styles (Wave 4) */
+    .task-card.completing {
+      animation: fadeOut 0.3s ease forwards;
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(0.95); }
+    }
+    /* Responsive: Mobile (375px) */
+    @media (max-width: 480px) {
+      header h1 { font-size: var(--text-2xl); }
+      .task-card { padding: 12px; gap: 8px; }
+      #addBtn { padding: 12px 20px; font-size: var(--text-sm); min-height: 44px; width: 100%; }
+      #taskInput { font-size: 16px; }
+      .input-section { flex-direction: column; }
+      .input-section label { font-size: 14px; }
+    }
+    /* Responsive: Tablet (768px) */
+    @media (min-width: 481px) and (max-width: 1024px) {
+      .app-container { padding: 20px 24px; }
+    }
+    /* Responsive: Desktop (1920px) */
+    @media (min-width: 1025px) {
+      .app-container { padding: 20px 40px; }
+    }
+    </style>
+  </head>
+  <body>
+    <!-- OMO_INTERNAL_INITIATOR -->
+    <div class="app-container">
+      <header>
+        <h1>Vivid To-Do</h1>
+        <p>Beautiful. Simple. Effective.</p>
+      </header>
+
+      <section class="input-section">
+        <input id="taskInput" type="text" placeholder="What needs to be done?">
+        <label class="important-label">
+          <input id="importantCheck" type="checkbox"> Important
+        </label>
+        <button id="addBtn">+ Add Task</button>
+      </section>
+
+      <section class="tasks-section">
+        <div id="tasksContainer"></div>
+      </section>
+
+      <!-- JS will be added here in later tasks -->
+      <script>
+        // Wave 2 Task Management (Task 4)
+      let tasks = [];
+      let nextId = Date.now();
+
+        const taskInput = document.getElementById('taskInput');
+        const importantCheck = document.getElementById('importantCheck');
+        const addBtn = document.getElementById('addBtn');
+        const tasksContainer = document.getElementById('tasksContainer');
+        const STORAGE_KEY = 'vivid-todo-tasks';
+
+        function escapeHtml(text) {
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        }
+
+        function saveTasks() {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ tasks, nextId }));
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        function renderTasks() {
+          tasksContainer.innerHTML = '';
+          tasks.forEach(task => {
+            const card = document.createElement('div');
+            card.className = 'task-card' +
+              (task.important ? ' important' : '') +
+              (task.completed ? ' completed' : '');
+            card.dataset.id = task.id;
+            card.innerHTML = `
+              <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
+              <div class="task-content">
+                <span class="task-text">${escapeHtml(task.text)}</span>
+                ${task.important ? '<span class="priority-badge">🔥 Important</span>' : ''}
+              </div>
+              <button class="delete-btn" title="Delete task">✕</button>
+            `;
+            const checkbox = card.querySelector('.task-checkbox');
+            const delBtn = card.querySelector('.delete-btn');
+            if (checkbox) checkbox.addEventListener('change', () => toggleComplete(task.id));
+            if (delBtn) delBtn.addEventListener('click', () => deleteTask(task.id));
+            tasksContainer.appendChild(card);
+          });
+        }
+
+        function addTask() {
+          const text = taskInput.value.trim();
+          if (!text) return;
+            const task = {
+              id: Date.now(),
+            text: text,
+            important: importantCheck.checked,
+            completed: false,
+            createdAt: Date.now()
+          };
+          tasks.push(task);
+          taskInput.value = '';
+          importantCheck.checked = false;
+          renderTasks();
+          saveTasks();
+        }
+
+        function deleteTask(id) {
+          const card = tasksContainer.querySelector(`[data-id="${id}"]`);
+          if (card) {
+            card.classList.add('completing');
+            setTimeout(() => {
+              tasks = tasks.filter(t => t.id !== id);
+              renderTasks();
+              saveTasks();
+            }, 300);  // Wait for fadeOut animation
+          } else {
+            tasks = tasks.filter(t => t.id !== id);
+            renderTasks();
+            saveTasks();
+          }
+        }
+
+        function toggleComplete(id) {
+          const task = tasks.find(t => t.id === id);
+          if (task) {
+            task.completed = !task.completed;
+            renderTasks();
+            saveTasks();
+
+            // Visual feedback: brief green flash
+            if (task.completed) {
+              const card = tasksContainer.querySelector(`[data-id="${id}"]`);
+              if (card) {
+                card.style.boxShadow = '0 0 20px rgba(34, 197, 94, 0.5)';
+                setTimeout(() => {
+                  card.style.boxShadow = '';
+                }, 500);
+              }
+            }
+          }
+        }
+
+        function loadTasks() {
+          try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              const data = JSON.parse(saved);
+              if (Array.isArray(data.tasks)) tasks = data.tasks;
+              if (typeof data.nextId === 'number') nextId = data.nextId;
+            }
+          } catch (e) {
+            // ignore
+          }
+          renderTasks();
+        }
+
+        // Wait for DOM to be fully loaded before initializing
+        document.addEventListener('DOMContentLoaded', () => {
+          loadTasks();
+
+          addBtn.addEventListener('click', addTask);
+
+          taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTask();
+          });
+        });
+      </script>
+    </div>
+  </body>
+</html>
