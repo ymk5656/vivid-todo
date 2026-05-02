@@ -329,10 +329,11 @@
     @media (max-width: 480px) {
       header h1 { font-size: var(--text-2xl); }
       .task-card { padding: 12px; gap: 8px; }
-      #addBtn { padding: 12px 20px; font-size: var(--text-sm); min-height: 44px; width: 100%; }
-      #taskInput { font-size: 16px; }
-      .input-section { flex-direction: column; }
+      #addBtn { padding: 8px 16px; font-size: var(--text-xs); min-height: 36px; width: auto; }
+      #taskInput { font-size: 16px; flex: 1; }
+      .input-section { flex-wrap: wrap; gap: 8px; }
       .input-section label { font-size: 14px; }
+      .input-section label input[type="checkbox"] { width: 18px; height: 18px; }
     }
     /* Responsive: Tablet (768px) */
     @media (min-width: 481px) and (max-width: 1024px) {
