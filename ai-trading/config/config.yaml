@@ -1,0 +1,50 @@
+trading:
+  mode: CRYPTO                        # CRYPTO | STOCK | ALL
+  dry_run: true                       # set false for live trading
+  poll_interval_seconds: 60
+
+  crypto:
+    symbols:
+      - UPBIT:BTCKRW
+      - UPBIT:ETHKRW
+      - UPBIT:XRPKRW
+    default_timeframe: "1h"
+    screener: crypto
+
+  stock:
+    symbols:
+      - KRX:005930                    # Samsung
+      - KRX:000660                    # SK Hynix
+    default_timeframe: "1d"
+    screener: korea
+    market_open: "09:00"
+    market_close: "15:30"
+    timezone: Asia/Seoul
+
+risk:
+  max_daily_loss_pct: 3.0
+  max_position_pct: 20.0
+  default_amount_krw: 100000          # 10만원 default
+  size_pct: 10.0                      # % of available balance per trade
+  stop_loss_pct: 2.0                  # stop-loss distance %
+  take_profit_pct: 4.0               # take-profit distance %
+
+indicators:
+  enabled:
+    - MACD
+    - RSI
+    - Stochastic
+  rsi_overbought: 70
+  rsi_oversold: 30
+  ema_fast: 9
+  ema_slow: 21
+
+strategy:
+  name: tv_signal               # tv_signal | ma_crossover | aitrading
+  signal_threshold: STRONG_BUY  # minimum strength to trigger buy
+
+logging:
+  level: INFO
+  file: logs/trading.log
+  max_bytes: 10485760
+  backup_count: 5
