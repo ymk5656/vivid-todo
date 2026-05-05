@@ -1,0 +1,17 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.4, pytest-9.0.3, pluggy-1.6.0 -- C:\Python314\python.exe
+cachedir: .pytest_cache
+rootdir: E:\project\ai-trading
+configfile: pytest.ini
+plugins: anyio-4.13.0, asyncio-1.3.0, cov-7.1.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 6 items
+
+tests/unit/test_divergence_rsi_filter.py::TestRsiFilterBullish::test_bullish_divergence_rsi_20_pass PASSED [ 16%]
+tests/unit/test_divergence_rsi_filter.py::TestRsiFilterBullish::test_bullish_divergence_rsi_50_filtered PASSED [ 33%]
+tests/unit/test_divergence_rsi_filter.py::TestRsiFilterBearish::test_bearish_divergence_rsi_80_pass PASSED [ 50%]
+tests/unit/test_divergence_rsi_filter.py::TestRsiFilterBearish::test_bearish_divergence_rsi_50_filtered PASSED [ 66%]
+tests/unit/test_divergence_rsi_filter.py::TestRsiFilterDefault::test_default_rsi_filter_enabled PASSED [ 83%]
+tests/unit/test_divergence_rsi_filter.py::TestRsiFilterDefault::test_rsi_value_recorded PASSED [100%]
+
+============================== 6 passed in 0.05s ==============================
