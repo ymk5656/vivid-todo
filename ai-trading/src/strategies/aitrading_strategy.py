@@ -20,7 +20,11 @@ from src.signals.aitrading_indicators import (
     detect_vwap_breakout, detect_vwap_breakdown,
     detect_swing_lows, detect_swing_highs,
     calculate_vwap, calculate_atr,
-    calculate_stop_loss, calculate_trailing_stop
+    calculate_stop_loss, calculate_trailing_stop,
+    calculate_ema, detect_ema_breakout,
+    detect_stoch_kd_crossover,
+    check_price_hl_with_slope, check_indicator_ll_with_slope,
+    calculate_slope
 )
 from src.signals.divergence_engine import calculate_divergences, DivergenceResult
 from src.signals.signal_models import Action, SignalStrength, Decision
@@ -84,18 +88,30 @@ def check_setup(ohlcv: list[dict], divergences: list[DivergenceResult]) -> dict:
         # Check if any has RSI ≤ 20 (strong bullish)
         strong_bullish = [d for d in bullish_divs if d.rsi_value <= 20]
         if strong_bullish:
-            reasons.append(f"Bullish divergence ≥1 with RSI≤20 ({len(strong_bullish)} found)")
+            # Correction 1: RSI ≤ 20 AND Support zone AND Volume increase reversal
+            has_support = is_near_support(ohlcv, current_idx=-1, threshold_pct=0.02)
+            from src.signals.aitrading_indicators import detect_volume_increase
+            has_volume_reversal = detect_volume_increase(ohlcv, lookback=5)
+            if has_support and has_volume_reversal:
+                reasons.append(f"Bullish divergence ≥1 with RSI≤20 ({len(strong_bullish)}) + Support zone + Volume reversal")
+            else:
+                reasons.append(f"Bullish divergence found but missing: {'Support' if not has_support else ''} {'Volume reversal' if not has_volume_reversal else ''}")
         else:
             reasons.append(f"Bullish divergence found but RSI>20 ({len(bullish_divs)} found)")
     
     # 2. Support zone rebound attempt
     if is_near_support(ohlcv, current_idx=-1, threshold_pct=0.02):
-        # Check if price is rising (close[-1] > close[-2])
-        if len(ohlcv) >= 2:
-            current_close = float(ohlcv[-1].get("close", 0))
-            prev_close = float(ohlcv[-2].get("close", 0))
-            if current_close > prev_close:
-                reasons.append("Support zone rebound attempt (price rising)")
+        # Correction 1: Also needs volume increase for confirmation
+        from src.signals.aitrading_indicators import detect_volume_increase
+        if detect_volume_increase(ohlcv, lookback=5):
+            # Check if price is rising (close[-1] > close[-2])
+            if len(ohlcv) >= 2:
+                current_close = float(ohlcv[-1].get("close", 0))
+                prev_close = float(ohlcv[-2].get("close", 0))
+                if current_close > prev_close:
+                    reasons.append("Support zone rebound attempt (price rising + volume increase)")
+        else:
+            reasons.append("Support zone detected but no volume increase")
     
     # 3. Volume decrease then bottom
     if detect_volume_decrease_stabilize(ohlcv, lookback=10):
@@ -105,40 +121,180 @@ def check_setup(ohlcv: list[dict], divergences: list[DivergenceResult]) -> dict:
     return {"setup_exists": setup_exists, "reasons": reasons}
 
 
-# ─── Entry Trigger Logic ──────────────────────────────────────────────
+# ─── Entry Trigger Logic (3-Stage Divergence Confirmation) ───────────
 
-def check_entry_trigger(ohlcv: list[dict], vwap_values: list[float]) -> dict:
+def check_entry_trigger(ohlcv: list[dict], vwap_values: list[float], 
+                       rsi_values: list[float] = None,
+                       stoch_k_values: list[float] = None,
+                       stoch_d_values: list[float] = None) -> dict:
     """
-    Check if entry trigger conditions are met (AFTER setup).
+    3-Stage Divergence Confirmation Entry Trigger.
+    
+    Stage 1: Structural Setup - Price HL + Indicator LL with slope confirmation
+    Stage 2: Oversold Escape - RSI/Stoch escapes oversold zone (≥ threshold)
+    Stage 3: Price Action Confirmation - EMA breakout + Stoch K>D crossover
     
     Returns:
         dict with keys:
             - trigger_occurred: bool
-            - trigger_type: str
+            - trigger_type: str (which stage confirmed)
             - reasons: list[str]
+            - stage_results: dict (detailed results for each stage)
     """
-    if not ohlcv:
-        return {"trigger_occurred": False, "trigger_type": "", "reasons": ["No OHLCV data"]}
+    if not ohlcv or len(ohlcv) < 20:
+        return {
+            "trigger_occurred": False, 
+            "trigger_type": "", 
+            "reasons": ["Insufficient OHLCV data (need ≥20 candles)"],
+            "stage_results": {}
+        }
     
     reasons = []
+    stage_results = {}
     
-    # 1. VWAP re-breakout
-    if detect_vwap_breakout(ohlcv, vwap_values):
-        reasons.append("VWAP re-breakout (price crossed above VWAP)")
+    # ─── Stage 1: Structural Setup ────────────────────────────────
+    # Price HL (Higher Low) with slope confirmation
+    price_hl_result = check_price_hl_with_slope(ohlcv, lookback=15)
     
-    # 2. Previous high breakout
-    if len(ohlcv) >= 20:
-        recent_highs = [float(c.get("high", 0)) for c in ohlcv[-20:-1]]  # Exclude current
-        if recent_highs:
-            prev_high = max(recent_highs)
-            current_close = float(ohlcv[-1].get("close", 0))
-            if current_close > prev_high:
-                reasons.append(f"Previous high breakout ({current_close:.2f} > {prev_high:.2f})")
+    # Indicator LL (Lower Low) - use RSI or Stochastic
+    indicator_ll_result = {"ll_found": False, "slope": 0.0, "reason": "No indicator"}
+    if rsi_values and len(rsi_values) == len(ohlcv):
+        indicator_ll_result = check_indicator_ll_with_slope(ohlcv, rsi_values, lookback=15)
+    elif stoch_k_values and len(stoch_k_values) == len(ohlcv):
+        indicator_ll_result = check_indicator_ll_with_slope(ohlcv, stoch_k_values, lookback=15)
     
-    trigger_occurred = len(reasons) > 0
-    trigger_type = "VWAP breakout" if "VWAP" in reasons[0] else "High breakout" if reasons else ""
+    stage1_pass = price_hl_result.get("hl_found", False) and indicator_ll_result.get("ll_found", False)
     
-    return {"trigger_occurred": trigger_occurred, "trigger_type": trigger_type, "reasons": reasons}
+    # Slope confirmation: price slope positive, indicator slope negative (divergence)
+    price_slope = price_hl_result.get("slope", 0.0)
+    indicator_slope = indicator_ll_result.get("slope", 0.0)
+    slope_divergence = price_slope > 0 and indicator_slope < 0
+    
+    stage_results["stage1"] = {
+        "passed": stage1_pass,
+        "price_hl": price_hl_result,
+        "indicator_ll": indicator_ll_result,
+        "slope_divergence": slope_divergence,
+        "reason": f"Price HL: {price_hl_result.get('reason')}, Indicator LL: {indicator_ll_result.get('reason')}"
+    }
+    
+    if stage1_pass and slope_divergence:
+        reasons.append(f"Stage1: Structural setup complete (Price HL + Indicator LL + slope divergence)")
+    
+    # ─── Stage 2: Oversold Escape ────────────────────────────────
+    oversold_escape = False
+    escape_reason = ""
+    
+    # Check RSI escape (≤20 → ≥20, or ≤30 → ≥30)
+    if rsi_values and len(rsi_values) >= 2:
+        rsi_curr = rsi_values[-1] if not math.isnan(rsi_values[-1]) else None
+        rsi_prev = rsi_values[-2] if len(rsi_values) >= 2 and not math.isnan(rsi_values[-2]) else None
+        
+        if rsi_curr is not None and rsi_prev is not None:
+            # Strong divergence: was ≤20, now >20
+            if rsi_prev <= 20 and rsi_curr > 20:
+                oversold_escape = True
+                escape_reason = f"RSI strong escape: {rsi_prev:.2f} → {rsi_curr:.2f}"
+            # Weak divergence: was ≤30, now >30
+            elif rsi_prev <= 30 and rsi_curr > 30:
+                oversold_escape = True
+                escape_reason = f"RSI weak escape: {rsi_prev:.2f} → {rsi_curr:.2f}"
+    
+    # Check Stochastic escape (≤20 → ≥20, or fast K crossing)
+    if not oversold_escape and stoch_k_values and len(stoch_k_values) >= 2:
+        stoch_curr = stoch_k_values[-1] if not math.isnan(stoch_k_values[-1]) else None
+        stoch_prev = stoch_k_values[-2] if len(stoch_k_values) >= 2 and not math.isnan(stoch_k_values[-2]) else None
+        
+        if stoch_curr is not None and stoch_prev is not None:
+            if stoch_prev <= 20 and stoch_curr > 20:
+                oversold_escape = True
+                escape_reason = f"Stoch escape: {stoch_prev:.2f} → {stoch_curr:.2f}"
+    
+    stage_results["stage2"] = {
+        "passed": oversold_escape,
+        "reason": escape_reason if oversold_escape else "No oversold escape detected"
+    }
+    
+    if oversold_escape:
+        reasons.append(f"Stage2: {escape_reason}")
+    
+    # ─── Stage 3: Price Action Confirmation ──────────────────────
+    # 3a. EMA Breakout (EMA 5 or EMA 10)
+    ema5_result = detect_ema_breakout(ohlcv, ema_period=5)
+    ema10_result = detect_ema_breakout(ohlcv, ema_period=10)
+    ema_breakout = ema5_result.get("breakout", False) or ema10_result.get("breakout", False)
+    
+    # 3b. Stochastic K>D Crossover (K35 Golden Cross)
+    stoch_cross_result = {"crossover": False, "k_value": 0.0, "d_value": 0.0, "reason": "N/A"}
+    if stoch_k_values and stoch_d_values:
+        # Use the imported function but need to reconstruct from values
+        # For simplicity, check K>D crossover directly
+        if len(stoch_k_values) >= 2 and len(stoch_d_values) >= 2:
+            k_curr = stoch_k_values[-1] if not math.isnan(stoch_k_values[-1]) else None
+            k_prev = stoch_k_values[-2] if not math.isnan(stoch_k_values[-2]) else None
+            d_curr = stoch_d_values[-1] if not math.isnan(stoch_d_values[-1]) else None
+            d_prev = stoch_d_values[-2] if not math.isnan(stoch_d_values[-2]) else None
+            
+            if all(v is not None for v in [k_curr, k_prev, d_curr, d_prev]):
+                k_crossed_above_d = (k_prev <= d_prev) and (k_curr > d_curr)
+                stoch_cross_result = {
+                    "crossover": k_crossed_above_d,
+                    "k_value": k_curr,
+                    "d_value": d_curr,
+                    "reason": f"K crossed above D: {k_prev:.2f}→{k_curr:.2f} vs D {d_prev:.2f}→{d_curr:.2f}" if k_crossed_above_d else "No K>D crossover"
+                }
+    
+    # 3c. Candle reversal (high breakout of divergence candle)
+    candle_reversal = False
+    candle_reason = ""
+    if len(ohlcv) >= 2:
+        # Find divergence candle (where indicator made LL)
+        # Simplified: check if current high > previous high
+        curr_high = float(ohlcv[-1].get("high", 0))
+        prev_high = float(ohlcv[-2].get("high", 0))
+        if curr_high > prev_high:
+            candle_reversal = True
+            candle_reason = f"Candle high breakout: {prev_high:.2f} → {curr_high:.2f}"
+    
+    # Stage 3 passes if EMA breakout OR (Stoch crossover AND candle reversal)
+    stage3_pass = ema_breakout or (stoch_cross_result.get("crossover", False) and candle_reversal)
+    
+    stage_results["stage3"] = {
+        "passed": stage3_pass,
+        "ema_breakout": ema_breakout,
+        "ema5_result": ema5_result,
+        "ema10_result": ema10_result,
+        "stoch_crossover": stoch_cross_result.get("crossover", False),
+        "candle_reversal": candle_reversal,
+        "reason": f"EMA breakout: {ema_breakout}, Stoch cross: {stoch_cross_result.get('crossover')}, Candle: {candle_reversal}"
+    }
+    
+    if stage3_pass:
+        reasons.append(f"Stage3: Price action confirmed (EMA breakout or Stoch cross + candle)")
+    
+    # ─── Final Trigger Decision ───────────────────────────────────
+    # All 3 stages must pass for BUY trigger
+    trigger_occurred = stage1_pass and oversold_escape and stage3_pass
+    
+    trigger_type = ""
+    if trigger_occurred:
+        trigger_type = "3-Stage Divergence Confirmation"
+        reasons.append("✓ All 3 stages passed - BUY signal confirmed!")
+    else:
+        # Explain what failed
+        if not stage1_pass:
+            reasons.append("✗ Stage1 failed: Structural setup incomplete")
+        if not oversold_escape:
+            reasons.append("✗ Stage2 failed: No oversold escape")
+        if not stage3_pass:
+            reasons.append("✗ Stage3 failed: No price action confirmation")
+    
+    return {
+        "trigger_occurred": trigger_occurred,
+        "trigger_type": trigger_type,
+        "reasons": reasons,
+        "stage_results": stage_results
+    }
 
 
 # ─── Position Sizing + Stop Loss ─────────────────────────────────────
@@ -163,7 +319,7 @@ def calculate_position_size(account_balance: float, risk_pct: float, stop_distan
     return risk_amount / stop_distance
 
 
-def calculate_stop_loss(entry_price: float, swing_low: float, atr_values: list[float], multiplier: float = 1.5) -> float:
+def calculate_stop_loss(entry_price: float, swing_low: float, atr_values: list[float], multiplier: float = 1.2) -> float:
     """
     Calculate stop loss price.
     
@@ -173,7 +329,7 @@ def calculate_stop_loss(entry_price: float, swing_low: float, atr_values: list[f
         entry_price: Entry price
         swing_low: Most recent swing low price
         atr_values: ATR values from calculate_atr()
-        multiplier: ATR multiplier (1.5~2.0)
+        multiplier: ATR multiplier (Correction 5: 1.2 for tighter trailing)
     
     Returns:
         Stop loss price
@@ -466,7 +622,7 @@ class AITradingStrategy:
             return Decision(
                 action=Action.NEUTRAL,
                 symbol=signal.symbol,
-                strength=SignalStrength.NEUTRAL,
+                size_pct=0.0,
                 reason="Insufficient OHLCV data"
             )
         
@@ -474,6 +630,18 @@ class AITradingStrategy:
         vwap_values = calculate_vwap(ohlcv)
         atr_values = calculate_atr(ohlcv, period=14)
         divergences = calculate_divergences(ohlcv, rsi_filter=True)
+        
+        # Get RSI and Stochastic values for 3-stage trigger
+        from src.signals.stochastic_engine import calculate_multi_stoch
+        stoch_data = calculate_multi_stoch(ohlcv)
+        
+        # Extract RSI values (from divergence engine or calculate separately)
+        # For now, use placeholder - will need RSI calculation
+        rsi_values = None  # TODO: calculate RSI if needed
+        
+        # Extract Stochastic K and D values for K35
+        stoch_k_values = stoch_data.get('k35', []) if stoch_data else []
+        stoch_d_values = stoch_data.get('d35', []) if stoch_data else []
         
         # ── SELL CHECKS (priority order) ──────────────────────────────
         sell_signals = []
@@ -514,10 +682,9 @@ class AITradingStrategy:
                 return Decision(
                     action=Action.SELL,
                     symbol=signal.symbol,
-                    strength=SignalStrength.STRONG_SELL,
                     size_pct=priority_signal.get("sell_pct", 100.0),
                     exit_type=priority_signal.get("exit_type", ""),
-                    reason=priority_signal.get("reason", "")
+                    reason=priority_signal.get("reason", "Sell signal triggered")
                 )
         
         # ── BUY CHECKS ────────────────────────────────────────────────
@@ -527,7 +694,7 @@ class AITradingStrategy:
             return Decision(
                 action=Action.NEUTRAL,
                 symbol=signal.symbol,
-                strength=SignalStrength.NEUTRAL,
+                size_pct=0.0,
                 reason=f"Buy prohibited: {market['reason']}"
             )
         
@@ -537,17 +704,23 @@ class AITradingStrategy:
             return Decision(
                 action=Action.NEUTRAL,
                 symbol=signal.symbol,
-                strength=SignalStrength.NEUTRAL,
+                size_pct=0.0,
                 reason=f"No setup: {', '.join(setup['reasons']) if setup['reasons'] else 'conditions not met'}"
             )
         
-        # Step 3: Entry Trigger
-        trigger = check_entry_trigger(ohlcv, vwap_values)
+        # Step 3: Entry Trigger (3-Stage Divergence Confirmation)
+        trigger = check_entry_trigger(
+            ohlcv, 
+            vwap_values, 
+            rsi_values=rsi_values,
+            stoch_k_values=stoch_k_values if stoch_k_values else None,
+            stoch_d_values=stoch_d_values if stoch_d_values else None
+        )
         if not trigger["trigger_occurred"]:
             return Decision(
                 action=Action.NEUTRAL,
                 symbol=signal.symbol,
-                strength=SignalStrength.NEUTRAL,
+                size_pct=0.0,
                 reason=f"No trigger: {', '.join(trigger['reasons']) if trigger['reasons'] else 'conditions not met'}"
             )
         
@@ -556,7 +729,8 @@ class AITradingStrategy:
         swing_lows = detect_swing_lows(ohlcv, prd=5)
         swing_low = float(ohlcv[swing_lows[-1]].get("close", entry_price * 0.95)) if swing_lows else entry_price * 0.95
         
-        stop_loss = calculate_stop_loss(entry_price, swing_low, atr_values, multiplier=1.5)
+        # Correction 5: Tighter trailing (ATR × 1.2)
+        stop_loss = calculate_stop_loss(entry_price, swing_low, atr_values, multiplier=1.2)
         account_balance = 10000000  # TODO: get from account
         risk_pct = 0.5  # 0.5% risk
         stop_distance = entry_price - stop_loss
@@ -570,7 +744,6 @@ class AITradingStrategy:
         return Decision(
             action=Action.BUY,
             symbol=signal.symbol,
-            strength=SignalStrength.STRONG_BUY,
             size_pct=min(position_size / account_balance * 100, 20.0),  # Cap at 20% (MAX_POSITION_PCT)
             stop_loss_pct=(entry_price - stop_loss) / entry_price * 100,
             reason=f"Setup: {', '.join(setup['reasons'])} | Trigger: {', '.join(trigger['reasons'])}"

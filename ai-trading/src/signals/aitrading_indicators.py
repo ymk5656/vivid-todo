@@ -444,3 +444,272 @@ def is_falling_with_volume_increase(ohlcv: list[dict], lookback: int = 5) -> boo
     
     # Check volume increase
     return detect_volume_increase(ohlcv, lookback)
+
+
+# ─── EMA (Exponential Moving Average) ────────────────────────────────
+
+def calculate_ema(prices: list[float], period: int) -> list[float]:
+    """
+    Calculate Exponential Moving Average (EMA) using pandas.
+    
+    Args:
+        prices: List of price values
+        period: EMA period (5 or 10)
+    
+    Returns:
+        List of EMA values (same length as input, NaN for first period-1)
+    """
+    if len(prices) == 0:
+        return []
+    
+    import pandas as pd
+    series = pd.Series(prices)
+    ema = series.ewm(span=period, adjust=False).mean()
+    return ema.tolist()
+
+
+def detect_ema_breakout(ohlcv: list[dict], ema_period: int = 5) -> dict:
+    """
+    Check if price breaks above EMA (bullish).
+    More lenient: check if current price > EMA and price is rising.
+    
+    Returns:
+        dict with keys:
+            - breakout: bool
+            - ema_value: float
+            - reason: str
+    """
+    if len(ohlcv) < ema_period + 2:
+        return {"breakout": False, "ema_value": 0.0, "reason": "Insufficient data"}
+    
+    closes = [float(c.get("close", 0)) for c in ohlcv]
+    ema_values = calculate_ema(closes, ema_period)
+    
+    # Get last valid EMA value
+    ema_curr = None
+    for i in range(len(ema_values)-1, -1, -1):
+        if not math.isnan(ema_values[i]):
+            ema_curr = ema_values[i]
+            break
+    
+    if ema_curr is None:
+        return {"breakout": False, "ema_value": 0.0, "reason": "Invalid EMA values"}
+    
+    curr_close = closes[-1]
+    prev_close = closes[-2] if len(closes) >= 2 else curr_close
+    
+    # Breakout: current price > EMA (bullish positioning)
+    # AND price is rising (current > previous)
+    breakout = (curr_close > ema_curr) and (curr_close > prev_close)
+    
+    return {
+        "breakout": breakout,
+        "ema_value": ema_curr,
+        "reason": f"Price {curr_close:.2f} above EMA{ema_period}={ema_curr:.2f}" if breakout else f"Price {curr_close:.2f} vs EMA {ema_curr:.2f}"
+    }
+
+
+# ─── Stochastic K/D Crossover ────────────────────────────────────────
+
+def detect_stoch_kd_crossover(ohlcv: list[dict], k_period: int = 35) -> dict:
+    """
+    Check for Stochastic K line crossing above D line (bullish crossover).
+    
+    Returns:
+        dict with keys:
+            - crossover: bool
+            - k_value: float
+            - d_value: float
+            - reason: str
+    """
+    if len(ohlcv) < k_period + 6:  # Need extra for smoothing
+        return {"crossover": False, "k_value": 0.0, "d_value": 0.0, "reason": "Insufficient data"}
+    
+    from src.signals.stochastic_engine import calculate_multi_stoch
+    stoch = calculate_multi_stoch(ohlcv)
+    
+    k_key = f'k{k_period}'
+    d_key = f'd{k_period}'
+    
+    if not stoch or k_key not in stoch or d_key not in stoch:
+        return {"crossover": False, "k_value": 0.0, "d_value": 0.0, "reason": "Stochastic not available"}
+    
+    k_values = stoch[k_key]
+    d_values = stoch[d_key]
+    
+    # Get last 2 valid K and D values
+    k_curr = None
+    k_prev = None
+    d_curr = None
+    d_prev = None
+    
+    for i in range(len(k_values)-1, -1, -1):
+        if not math.isnan(k_values[i]) and k_curr is None:
+            k_curr = k_values[i]
+            continue
+        elif not math.isnan(k_values[i]) and k_curr is not None and k_prev is None:
+            k_prev = k_values[i]
+            break
+    
+    for i in range(len(d_values)-1, -1, -1):
+        if not math.isnan(d_values[i]) and d_curr is None:
+            d_curr = d_values[i]
+            continue
+        elif not math.isnan(d_values[i]) and d_curr is not None and d_prev is None:
+            d_prev = d_values[i]
+            break
+    
+    if any(v is None for v in [k_curr, k_prev, d_curr, d_prev]):
+        return {"crossover": False, "k_value": 0.0, "d_value": 0.0, "reason": "Invalid stochastic values"}
+    
+    # Bullish crossover: K was below D, now above
+    crossed = (k_prev <= d_prev) and (k_curr > d_curr)
+    
+    return {
+        "crossover": crossed,
+        "k_value": k_curr,
+        "d_value": d_curr,
+        "reason": f"K={k_curr:.2f} crossed above D={d_curr:.2f}" if crossed else f"No crossover: K={k_curr:.2f}, D={d_curr:.2f}"
+    }
+
+
+# ─── Slope Calculation for Divergence ────────────────────────────────
+
+def calculate_slope(values: list[float], lookback: int = 5) -> float:
+    """
+    Calculate slope of values using linear regression.
+    
+    Args:
+        values: List of float values (e.g., closes or indicator values)
+        lookback: Number of recent values to use
+        
+    Returns:
+        Slope (positive = uptrend, negative = downtrend)
+    """
+    if len(values) < lookback:
+        return 0.0
+    
+    import numpy as np
+    y = values[-lookback:]
+    x = list(range(len(y)))
+    
+    # Simple linear regression: slope = covariance(x,y) / variance(x)
+    n = len(x)
+    sum_x = sum(x)
+    sum_y = sum(y)
+    sum_xy = sum(x[i] * y[i] for i in range(n))
+    sum_x2 = sum(xi**2 for xi in x)
+    
+    denominator = n * sum_x2 - sum_x**2
+    if denominator == 0:
+        return 0.0
+    
+    slope = (n * sum_xy - sum_x * sum_y) / denominator
+    return slope
+
+
+def check_price_hl_with_slope(ohlcv: list[dict], lookback: int = 15) -> dict:
+    """
+    Check for Price Higher Low (HL) with slope confirmation.
+    
+    Stage 1 Structural Setup - Price component.
+    Simplified: Check if last low > previous low in lookback period.
+    
+    Returns:
+        dict with keys:
+            - hl_found: bool
+            - slope: float (positive = bullish)
+            - reason: str
+    """
+    if len(ohlcv) < lookback:
+        return {"hl_found": False, "slope": 0.0, "reason": "Insufficient data"}
+    
+    # Get recent data
+    recent = ohlcv[-lookback:]
+    
+    # Find 2 lowest lows in the period
+    lows = [(float(c.get("low", 0.0)), i) for i, c in enumerate(recent)]
+    lows_sorted = sorted(lows, key=lambda x: x[0])  # Sort by price
+    
+    if len(lows_sorted) < 2:
+        return {"hl_found": False, "slope": 0.0, "reason": "Less than 2 lows"}
+    
+    # Get the 2 lowest lows
+    lowest = lows_sorted[0]  # (price, index)
+    second_lowest = lows_sorted[1]  # (price, index)
+    
+    # Higher Low: the more recent low is higher than the earlier low
+    # We want the last low (closer to now) to be HIGHER than the previous low
+    last_low_idx = max(lowest[1], second_lowest[1])
+    prev_low_idx = min(lowest[1], second_lowest[1])
+    
+    last_low_price = recent[last_low_idx].get("close", 0.0)
+    prev_low_price = recent[prev_low_idx].get("close", 0.0)
+    
+    # HL: last low > previous low
+    hl = last_low_price > prev_low_price
+    
+    # Slope of recent closes (bullish if positive)
+    recent_closes = [float(c.get("close", 0.0)) for c in recent[-5:]]
+    slope = calculate_slope(recent_closes, len(recent_closes))
+    
+    return {
+        "hl_found": hl,
+        "slope": slope,
+        "reason": f"Price HL: {prev_low_price:.2f} -> {last_low_price:.2f}, slope={slope:.4f}" if hl else f"No HL: {prev_low_price:.2f} vs {last_low_price:.2f}"
+    }
+
+
+def check_indicator_ll_with_slope(ohlcv: list[dict], indicator_values: list[float], lookback: int = 15) -> dict:
+    """
+    Check for Indicator Lower Low (LL) with slope confirmation.
+    
+    Stage 1 Structural Setup - Indicator component.
+    Simplified: Check if last low < previous low in lookback period.
+    
+    Args:
+        ohlcv: OHLCV data
+        indicator_values: List of indicator values (same length as ohlcv)
+        lookback: Number of candles to look back
+        
+    Returns:
+        dict with keys:
+            - ll_found: bool
+            - slope: float (negative = bullish divergence)
+            - reason: str
+    """
+    if len(ohlcv) < lookback or len(indicator_values) < lookback:
+        return {"ll_found": False, "slope": 0.0, "reason": "Insufficient data"}
+    
+    # Get recent indicator values
+    recent_values = indicator_values[-lookback:]
+    
+    # Find 2 lowest indicator values in the period
+    values_with_idx = [(v, i) for i, v in enumerate(recent_values) if not math.isnan(v)]
+    values_sorted = sorted(values_with_idx, key=lambda x: x[0])  # Sort by value
+    
+    if len(values_sorted) < 2:
+        return {"ll_found": False, "slope": 0.0, "reason": "Less than 2 indicator values"}
+    
+    # Get the 2 lowest
+    lowest = values_sorted[0]  # (value, index)
+    second_lowest = values_sorted[1]  # (value, index)
+    
+    # Lower Low: the more recent low is LOWER than the earlier low
+    # For divergence: we want indicator to make LL while price makes HL
+    last_low_val = lowest[0]
+    prev_low_val = second_lowest[0]
+    
+    # LL: last low < previous low
+    ll = last_low_val < prev_low_val
+    
+    # Slope of recent values (bearish divergence = negative slope for indicator)
+    recent_5 = recent_values[-5:] if len(recent_values) >= 5 else recent_values
+    recent_5_clean = [v for v in recent_5 if not math.isnan(v)]
+    slope = calculate_slope(recent_5_clean, len(recent_5_clean)) if len(recent_5_clean) >= 2 else 0.0
+    
+    return {
+        "ll_found": ll,
+        "slope": slope,
+        "reason": f"Indicator LL: {prev_low_val:.2f} -> {last_low_val:.2f}, slope={slope:.4f}" if ll else f"No LL: {prev_low_val:.2f} vs {last_low_val:.2f}"
+    }

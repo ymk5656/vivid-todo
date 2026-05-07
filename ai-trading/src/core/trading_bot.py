@@ -19,6 +19,8 @@ from src.strategies.base_strategy import AbstractStrategy
 from src.strategies.strategy_simple import SimpleStrategy
 from src.strategies.strategy_ai import AIStrategy
 from src.strategies.aitrading_strategy import AITradingStrategy
+from src.strategies.ma_crossover_strategy import MACrossoverStrategy
+from src.strategies.volatility_sizing_strategy import VolatilitySizingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +53,18 @@ class TradingBot:
         config_path: str = "config/config.yaml",
     ):
         self._exchanges = exchanges
-        # Strategy selection: env -> config -> default (AI/Simple)
-        config_strategy = self._load_config().get("strategy", {}).get("name", "tv_signal")
+        # Strategy selection: env -> config -> default (MA Crossover)
+        config_strategy = self._load_config().get("strategy", {}).get("name", "ma_crossover")
         if config_strategy == "aitrading":
             default_strategy = AITradingStrategy()
         elif config_strategy == "ai":
             default_strategy = AIStrategy()
+        elif config_strategy == "ma_crossover":
+            default_strategy = MACrossoverStrategy()
+        elif config_strategy == "volatility_sizing":
+            default_strategy = VolatilitySizingStrategy()
         else:
-            default_strategy = SimpleStrategy()  # tv_signal (default)
+            default_strategy = MACrossoverStrategy()  # default fallback
         self._strategy = strategy or default_strategy
         self._repo = repo
         self._config_path = config_path
@@ -220,12 +226,36 @@ class TradingBot:
             pass
         return None
 
+    def _load_strategy(self) -> AbstractStrategy:
+        """Load strategy by name: DB setting -> config.yaml -> default (ma_crossover)."""
+        name = self._repo.get_setting("strategy_name") if self._repo else ""
+        if not name:
+            cfg = self._load_config()
+            name = cfg.get("strategy", {}).get("name", "ma_crossover")
+
+        if name == "aitrading":
+            return AITradingStrategy()
+        if name == "ai":
+            return AIStrategy()
+        if name == "ma_crossover":
+            return MACrossoverStrategy()
+        if name == "volatility_sizing":
+            # Read target_vol from config for this strategy
+            cfg = self._load_config()
+            target_vol = float(cfg.get("strategy", {}).get("target_vol", 0.10))
+            return VolatilitySizingStrategy(target_vol=target_vol)
+        # Fallback
+        return MACrossoverStrategy()
+
     # ------------------------------------------------------------------ tick
 
     def tick(self):
         """Run one evaluation cycle (called from the async loop)."""
         if not self._running:
             return
+
+        # Reload strategy from DB each cycle (allows UI switching without restart)
+        self._strategy = self._load_strategy()
 
         cfg = self._load_config()
         symbols = self._symbols(cfg)

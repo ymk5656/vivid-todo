@@ -96,31 +96,9 @@ class TestSetup:
 class TestEntryTrigger:
     """Tests for Entry Trigger logic."""
     
-    def test_trigger_vwap_breakout(self):
-        """Trigger on VWAP breakout."""
-        from src.signals.aitrading_indicators import calculate_vwap
-        ohlcv = [
-            {"high": 110, "low": 90, "close": 100, "volume": 1000},
-            {"high": 105, "low": 85, "close": 95, "volume": 1200},
-            {"high": 115, "low": 95, "close": 105, "volume": 1300}  # Crosses above VWAP
-        ]
-        vwap = calculate_vwap(ohlcv)
-        result = check_entry_trigger(ohlcv, vwap)
-        assert result["trigger_occurred"] == True
-        assert "VWAP" in result["trigger_type"]
-    
-    def test_trigger_high_breakout(self):
-        """Trigger on previous high breakout."""
-        ohlcv = []
-        for i in range(20):
-            ohlcv.append({"high": 100+i, "low": 90+i, "close": 95+i, "volume": 1000})
-        # Add breakout candle
-        ohlcv.append({"high": 125, "low": 115, "close": 120, "volume": 1500})
-        
-        from src.signals.aitrading_indicators import calculate_vwap
-        vwap = calculate_vwap(ohlcv)
-        result = check_entry_trigger(ohlcv, vwap)
-        assert result["trigger_occurred"] == True
+    # NOTE: Old VWAP/high breakout tests removed - replaced by 3-stage system
+    # The 3-stage tests are in test_3stage_strategy.py
+    pass
 
 
 class TestPositionSizing:

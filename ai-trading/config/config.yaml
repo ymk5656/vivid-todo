@@ -40,8 +40,12 @@ indicators:
   ema_slow: 21
 
 strategy:
-  name: tv_signal               # tv_signal | ma_crossover | aitrading
-  signal_threshold: STRONG_BUY  # minimum strength to trigger buy
+  name: volatility_sizing        # ma_crossover | aitrading | ai | simple | volatility_sizing
+  # VolatilitySizingStrategy parameters
+  target_vol: 0.10               # target annualized volatility (10%)
+  # EMA periods for ma_crossover strategy (kept for backward compatibility)
+  ema_fast: EMA10
+  ema_slow: EMA20
 
 logging:
   level: INFO

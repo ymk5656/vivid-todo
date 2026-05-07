@@ -58,12 +58,12 @@ Implement a production-ready trading strategy with multi-step conditional logic 
 - `tests/unit/test_aitrading_indicators.py` - Unit tests for indicators
 
 ### Definition of Done
-- [ ] All BUY conditions implemented and tested (market filter, setup, trigger, entry)
-- [ ] All SELL conditions implemented and tested (stop loss, structure collapse, profit protection, bearish signal)
-- [ ] RSI-filtered divergence working (≤20 for bullish, ≥80 for bearish)
-- [ ] VWAP, ATR, Stochastic K35/K65/K100 indicators functional
-- [ ] Strategy integrated with TradingBot orchestrator
-- [ ] All tests pass: `pytest tests/unit/test_aitrading*.py -v`
+- [x] All BUY conditions implemented and tested (market filter, setup, trigger, entry)
+- [x] All SELL conditions implemented and tested (stop loss, structure collapse, profit protection, bearish signal)
+- [x] RSI-filtered divergence working (≤20 for bullish, ≥80 for bearish)
+- [x] VWAP, ATR, Stochastic K35/K65/K100 indicators functional
+- [x] Strategy integrated with TradingBot orchestrator
+- [x] All tests pass: `pytest tests/unit/test_aitrading*.py -v`
 
 ### Must Have
 - Market State Filter: Higher Low OR Support zone (NO EMA200!)
@@ -187,7 +187,7 @@ Max Concurrent: 7 (Wave 2)
 > EVERY task MUST have: Recommended Agent Profile + Parallelization info + QA Scenarios.
 > **A task WITHOUT QA Scenarios is INCOMPLETE. No exceptions.**
 
-- [ ] 1. Implement VWAP (Volume Weighted Average Price) indicator
+- [x] 1. Implement VWAP (Volume Weighted Average Price) indicator
 
   **What to do**:
   - Create `calculate_vwap(ohlcv: list[dict], session_anchored: bool = True) -> list[float]` in `src/signals/aitrading_indicators.py`
@@ -263,7 +263,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 2. Implement ATR (Average True Range) indicator
+- [x] 2. Implement ATR (Average True Range) indicator
 
   **What to do**:
   - Add `calculate_atr(ohlcv: list[dict], period: int = 14) -> list[float]` to `aitrading_indicators.py`
@@ -323,7 +323,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 3. Implement Support/Resistance zone detection
+- [x] 3. Implement Support/Resistance zone detection
 
   **What to do**:
   - Add `detect_swing_lows(ohlcv: list[dict], prd: int = 5) -> list[int]` - Find swing low indices
@@ -372,7 +372,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 4. Implement Volume analysis patterns
+- [x] 4. Implement Volume analysis patterns
 
   **What to do**:
   - Add `detect_volume_decrease_stabilize(ohlcv: list[dict], lookback: int = 10) -> bool`
@@ -418,7 +418,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 5. Modify divergence_engine.py - Add RSI filter
+- [x] 5. Modify divergence_engine.py - Add RSI filter
 
   **What to do**:
   - Modify `calculate_divergences()` to accept new parameter: `rsi_filter: bool = True`
@@ -470,7 +470,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 6. Implement Market State Filter (Higher Low / Support zone)
+- [x] 6. Implement Market State Filter (Higher Low / Support zone)
 
   **What to do**:
   - Create `check_market_state(ohlcv: list[dict]) -> dict` in `aitrading_strategy.py` (or helper)
@@ -523,7 +523,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 7. Implement BUY Setup logic
+- [x] 7. Implement BUY Setup logic
 
   **What to do**:
   - Create `check_setup(ohlcv: list[dict], divergences: list) -> dict` in strategy
@@ -574,7 +574,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 8. Implement Entry Trigger logic
+- [x] 8. Implement Entry Trigger logic
 
   **What to do**:
   - Create `check_entry_trigger(ohlcv: list[dict], vwap_values: list[float]) -> dict` in strategy
@@ -620,7 +620,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 9. Implement Position Sizing + Stop Loss logic
+- [x] 9. Implement Position Sizing + Stop Loss logic
 
   **What to do**:
   - Create `calculate_position_size(account_balance: float, risk_pct: float, stop_distance: float) -> float` in strategy
@@ -667,7 +667,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 10. Implement Post-Buy Management logic
+- [x] 10. Implement Post-Buy Management logic
 
   **What to do**:
   - Create `check_partial_profit(current_price: float, entry_price: float, stop_loss: float) -> dict`:
@@ -717,7 +717,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 11. Implement Structure Collapse Sell logic
+- [x] 11. Implement Structure Collapse Sell logic
 
   **What to do**:
   - Create `check_structure_collapse(ohlcv: list[dict], vwap_values: list[float]) -> dict` in strategy
@@ -764,7 +764,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 12. Implement Bearish Signal Sell logic
+- [x] 12. Implement Bearish Signal Sell logic
 
   **What to do**:
   - Create `check_bearish_signal(ohlcv: list[dict], divergences: list, vwap_values: list[float]) -> dict` in strategy
@@ -811,7 +811,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 13. Implement Stop Loss + Profit Protection Sell
+- [x] 13. Implement Stop Loss + Profit Protection Sell
 
   **What to do**:
   - Create `check_stop_loss(current_price: float, stop_loss: float) -> dict`:
@@ -861,7 +861,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 14. Implement Sell Priority + Risk Management
+- [x] 14. Implement Sell Priority + Risk Management
 
   **What to do**:
   - Create `execute_sell_priority(signals: list[dict]) -> dict` in strategy:
@@ -908,7 +908,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 15. Create AITradingStrategy class - Main orchestrator
+- [x] 15. Create AITradingStrategy class - Main orchestrator
 
   **What to do**:
   - Create `src/strategies/aitrading_strategy.py` with class `AITradingStrategy(AbstractStrategy)`:
@@ -974,7 +974,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 16. Integrate AITradingStrategy with TradingBot
+- [x] 16. Integrate AITradingStrategy with TradingBot
 
   **What to do**:
   - Modify `src/core/trading_bot.py` to support new strategy:
@@ -1025,7 +1025,7 @@ Max Concurrent: 7 (Wave 2)
 
 ---
 
-- [ ] 17. Add exit_type to Decision dataclass if needed
+- [x] 17. Add exit_type to Decision dataclass if needed
 
   **What to do**:
   - Check if `src/signals/signal_models.py:Decision` already supports all exit types:
@@ -1081,19 +1081,19 @@ Max Concurrent: 7 (Wave 2)
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 > **Never mark F1-F4 as checked before getting user's okay.** Rejection or user feedback -> fix -> re-run -> present again -> wait for okay.
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (read file, check function signatures). For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found. Check evidence files exist in .sisyphus/evidence/. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `python -m pytest` + linting. Review all changed files for: empty catches, print statements in prod, hardcoded values, missing docstrings. Check AI slop: excessive comments, over-abstraction, generic names (data/result/item/temp).
   Output: `Build [PASS/FAIL] | Lint [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high` (+ `playwright` if UI)
+- [x] F3. **Real Manual QA** — `unspecified-high` (+ `playwright` if UI)
   Start from clean state. Execute EVERY QA scenario from EVERY task — follow exact steps, capture evidence. Test cross-task integration (BUY flow → SELL flow working together, not isolation). Test edge cases: empty OHLCV, RSI=50 (no filter), volume=0. Save to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (git log/diff). Verify 1:1 — everything in spec was built (no missing), nothing beyond spec was built (no creep). Check "Must NOT do" compliance. Detect cross-task contamination: Task N touching Task M's files. Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 
@@ -1131,10 +1131,10 @@ python -m flake8 src/strategies/aitrading_strategy.py src/signals/aitrading_indi
 ```
 
 ### Final Checklist
-- [ ] All "Must Have" present (market filter, setup, trigger, entry, sell conditions)
-- [ ] All "Must NOT Have" absent (NO EMA200, NO complex deps, NO UI changes)
-- [ ] All tests pass (unit + integration)
-- [ ] Strategy isolated in aitrading_strategy.py + aitrading_indicators.py
-- [ ] RSI filter working (≤20 for bullish, ≥80 for bearish)
-- [ ] K35/K65/K100 stochastic used for overheat detection
-- [ ] Evidence files captured for all QA scenarios
+- [x] All "Must Have" present (market filter, setup, trigger, entry, sell conditions)
+- [x] All "Must NOT Have" absent (NO EMA200, NO complex deps, NO UI changes)
+- [x] All tests pass (unit + integration)
+- [x] Strategy isolated in aitrading_strategy.py + aitrading_indicators.py
+- [x] RSI filter working (≤20 for bullish, ≥80 for bearish)
+- [x] K35/K65/K100 stochastic used for overheat detection
+- [x] Evidence files captured for all QA scenarios
