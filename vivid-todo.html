@@ -1,509 +1,523 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0f172a">
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230f172a'/><text y='.9em' font-size='80' text-anchor='middle' x='50' fill='%2322d3ee'>✓</text></svg>">
-    <title>Vivid To-Do</title>
-<style>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#F5F0E8">
+  <title>Vivid To-Do</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Karla:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:            #F5F0E8;
+      --bg-card:       #FFFFFF;
+      --bg-input:      #FDFCF9;
+      --text-primary:  #1C1917;
+      --text-secondary:#78716C;
+      --text-muted:    #A8A29E;
+      --accent:        #C84B31;
+      --accent-hover:  #A83B24;
+      --accent-light:  #FEF0ED;
+      --border:        #E5DDD3;
+      --border-input:  #CEC5BA;
+      --success:       #3D7A5A;
+      --shadow-sm:     0 1px 3px rgba(28,25,23,0.07);
+      --shadow-md:     0 4px 16px rgba(28,25,23,0.09);
+      --radius:        6px;
+      --t:             180ms ease;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      background-color: var(--bg);
+      /* subtle paper grain */
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
       min-height: 100vh;
-      margin: 0;
-      overscroll-behavior: none;
+      font-family: 'Karla', sans-serif;
+      color: var(--text-primary);
       -webkit-tap-highlight-color: transparent;
     }
-      
 
-      /* Global box-sizing to prevent overflow */
-      * {
-        box-sizing: border-box;
-      }
+    .app-container {
+      max-width: 540px;
+      margin: 0 auto;
+      padding: 52px 24px 80px;
+    }
 
-      /* App container wrapper (FIX-5) */
-      .app-container {
-        max-width: 600px;
-        margin: 0 auto;
-        padding: 20px 16px;
-        box-sizing: border-box;
-      }
-      :root {
-        /* Colors (dark gradient) */
-        --bg-gradient-start: #0f0f23;
-        --bg-gradient-end: #1a1a3e;
-        --surface-glass: rgba(255, 255, 255, 0.08);
-        --surface-glass-border: rgba(255, 255, 255, 0.15);
-        --text-primary: #f0f0f5;
-        --text-secondary: #a0a0b8;
-        --accent-cyan: #22d3ee;
-        --accent-blue: #3b82f6;
-        --accent-purple: #a855f7;
-        --priority-orange: #f97316;
-        --important-accent: #f97316;
-        --important-bg: rgba(249, 115, 22, 0.15);
-        --danger-red: #ef4444;
-        --success-green: #22c55e;
+    /* ── Header ─────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 44px;
+    }
 
-        /* Spacing scale (rem) - 6 steps */
-        --space-xs: 0.25rem;
-        --space-sm: 0.5rem;
-        --space-md: 0.75rem;
-        --space-lg: 1rem;
-        --space-xl: 1.5rem;
-        --space-2xl: 3rem;
+    .wordmark {
+      display: block;
+      font-family: 'Karla', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
 
-    /* Typography scale (rem) - 6 steps */
-        --text-xs: 0.75rem;
-        --text-sm: 0.875rem;
-        --text-md: 1rem;
-        --text-lg: 1.25rem;
-        --text-xl: 1.5rem;
-        --text-2xl: 1.75rem;
-        --text-3xl: 1.875rem;
-        --text-base: 1rem;
+    .day-name {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.6rem, 8vw, 3.8rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1;
+      color: var(--text-primary);
+    }
 
-        /* Font weights */
-        --weight-normal: 400;
-        --weight-medium: 500;
-        --weight-semibold: 600;
-        --weight-bold: 700;
+    .date-line {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      letter-spacing: 0.06em;
+      margin-top: 8px;
+    }
 
-        /* Border radius (rounded corners) - 5 steps */
-        --radius-sm: 0.375rem;
-        --radius-md: 0.75rem;
-        --radius-lg: 1rem;
-        --radius-xl: 1.25rem;
-        --radius-2xl: 1.5rem;
-
-        /* Shadows */
-        --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
-        --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.2);
-
-        /* Animations / transitions */
-        --transition-fast: 150ms ease;
-        --transition-normal: 250ms ease;
-        --transition-slow: 400ms ease;
-      }
-    /* Task Card base styles (Wave 2) */
-    /* Task card base styles */
-    .task-card {
-      background: rgba(30, 41, 59, 0.6);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid var(--surface-glass-border);
-      border-radius: var(--radius-xl);
-      padding: var(--space-md) var(--space-lg);
-      margin-bottom: var(--space-md);
+    .divider {
       display: flex;
       align-items: center;
-      gap: var(--space-md);
-      box-shadow: var(--shadow-card);
-      /* Animation */
-      animation: slideUp 0.3s ease forwards, fadeIn 0.3s ease forwards;
+      gap: 14px;
+      margin-top: 28px;
+    }
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .divider-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.6;
+    }
+
+    /* ── Input card ──────────────────────────── */
+    .input-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      padding: 18px;
+      margin-bottom: 36px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    #taskInput {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      border-radius: var(--radius);
+      padding: 11px 14px;
+      font-family: 'Karla', sans-serif;
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color var(--t), box-shadow var(--t);
+    }
+    #taskInput::placeholder { color: var(--text-muted); }
+    #taskInput:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(200,75,49,0.1);
+    }
+
+    #addBtn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 11px 22px;
+      font-family: 'Karla', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--t), box-shadow var(--t), transform var(--t);
+    }
+    #addBtn:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 14px rgba(200,75,49,0.28);
+      transform: translateY(-1px);
+    }
+    #addBtn:active { transform: translateY(0); box-shadow: none; }
+
+    .input-meta {
+      display: flex;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .important-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+      transition: color var(--t);
+    }
+    .important-label:hover { color: var(--accent); }
+    .important-label #importantCheck {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* ── Section header ───────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .section-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .task-counter {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    /* ── Task cards ───────────────────────────── */
+    #tasksContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .task-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 13px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      box-shadow: var(--shadow-sm);
+      transition: transform var(--t), box-shadow var(--t);
+      animation: appear 0.2s ease both;
       opacity: 0;
     }
 
-        /* New entry animations (fadeIn and fadeOut) */
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes fadeOut {
-      from { opacity: 1; transform: scale(1); }
-      to { opacity: 0; transform: scale(0.95); }
-    }
-    /* Media queries moved to end of style block for consistency */
-
-    /* Staggered delays for multiple task cards (6+ as 0.3s baseline) */
-    .task-card:nth-child(1) { animation-delay: 0s; }
-    .task-card:nth-child(2) { animation-delay: 0.05s; }
-    .task-card:nth-child(3) { animation-delay: 0.1s; }
-    .task-card:nth-child(4) { animation-delay: 0.15s; }
-    .task-card:nth-child(5) { animation-delay: 0.2s; }
-    .task-card:nth-child(n+6) { animation-delay: 0.3s; }
-
-    /* Completion animation hook - JS will toggle .completing */
-    .task-card.completing {
-      animation: fadeOut 0.3s ease forwards;
-    }
-
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+    .task-card:nth-child(1) { animation-delay: 0.00s; }
+    .task-card:nth-child(2) { animation-delay: 0.04s; }
+    .task-card:nth-child(3) { animation-delay: 0.08s; }
+    .task-card:nth-child(4) { animation-delay: 0.12s; }
+    .task-card:nth-child(5) { animation-delay: 0.16s; }
+    .task-card:nth-child(n+6) { animation-delay: 0.20s; }
 
     .task-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
     }
 
-    /* Important variant (strong visual emphasis) */
     .task-card.important {
-      border-left: 4px solid var(--priority-orange);
-      background: rgba(249, 115, 22, 0.08);
-      padding: var(--space-lg) var(--space-xl);
-      box-shadow: 0 4px 20px rgba(249, 115, 22, 0.15);
-      font-size: 18px;
-      font-weight: 700;
+      border-left: 3px solid var(--accent);
     }
 
-    /* Checkbox styles - mobile friendly touch target */
+    .task-card.completing {
+      animation: vanish 0.26s ease forwards !important;
+    }
+    @keyframes vanish {
+      to { opacity: 0; transform: scale(0.97); }
+    }
+
+    .task-card.completed {
+      opacity: 0.5;
+      transition: opacity var(--t);
+    }
+    .task-card.completed:hover { opacity: 0.68; }
+    .task-card.completed .task-text {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+    .task-card.completed .priority-badge { display: none; }
+
     .task-checkbox {
-      width: 28px;
-      height: 28px;
-      accent-color: var(--accent-cyan);
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
       cursor: pointer;
       flex-shrink: 0;
+      margin-top: 3px;
     }
 
-    /* Task content and text */
     .task-content {
       flex: 1;
       min-width: 0;
     }
-    /* Checkbox hover / checked state polish */
-    .task-checkbox:hover {
-      cursor: pointer;
-      transform: scale(1.1);
-    }
-    .task-checkbox:checked {
-      accent-color: var(--success-green);
-    }
 
     .task-text {
-      font-size: var(--text-base);
+      font-size: 14.5px;
+      font-weight: 400;
       color: var(--text-primary);
-      transition: opacity var(--transition-normal), text-decoration var(--transition-normal);
+      line-height: 1.55;
+      word-break: break-word;
+      transition: color var(--t);
     }
 
-    /* font-size/font-weight moved to the card itself; keep task text default */
-    /* Completed task styles (enhanced) */
-    .task-card.completed {
-      opacity: 0.6;
-      transition: opacity var(--transition-normal);
-    }
-    .task-card.completed .task-text {
-      text-decoration: line-through;
-      text-decoration-color: var(--text-secondary);
-      opacity: 0.7;
-      font-style: italic;
-    }
-    .task-card.completed:hover {
-      opacity: 0.8;
-    }
-    .task-card.completed .priority-badge {
-      display: none;
-    }
-
-    
-    /* Priority badge (for important tasks) */
     .priority-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--space-xs);
-      padding: var(--space-xs) var(--space-sm);
-      background: rgba(249, 115, 22, 0.2);
-      color: var(--important-accent);
-      border-radius: var(--radius-sm);
-      font-size: var(--text-xs);
-      font-weight: var(--weight-semibold);
-      margin-left: var(--space-sm);
+      display: inline-block;
+      margin-top: 5px;
+      padding: 2px 8px;
+      background: var(--accent-light);
+      color: var(--accent);
+      border-radius: 3px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    /* Task date styling */
-    .task-date {
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-      margin-left: auto;
-      padding-left: var(--space-sm);
-      white-space: nowrap;
-    }
-
-    /* Add 🔥 emoji via CSS for important badge */
-    .priority-badge::before {
-      content: '🔥';
-      font-size: var(--text-sm);
-    }
-
-    /* Delete button - mobile friendly touch target */
     .delete-btn {
       background: none;
       border: none;
-      color: var(--text-secondary);
-      font-size: var(--text-lg);
+      color: var(--text-muted);
+      font-size: 13px;
       cursor: pointer;
-      padding: var(--space-sm) var(--space-md);
-      border-radius: var(--radius-sm);
-      transition: color var(--transition-fast), background var(--transition-fast);
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: color var(--t), background var(--t);
       flex-shrink: 0;
-      min-width: 44px;
-      min-height: 44px;
+      min-width: 28px;
+      min-height: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-
     .delete-btn:hover {
-      color: var(--danger-red);
-      background: rgba(239, 68, 68, 0.15);
-      transform: scale(1.1);
+      color: var(--accent);
+      background: var(--accent-light);
     }
-    .delete-btn:active {
-      transform: scale(0.95);
-    }
+    .delete-btn:active { transform: scale(0.9); }
 
-    /* Refine header typography */
-    header h1 {
-      font-size: var(--text-3xl);
-      font-weight: var(--weight-bold);
-      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      letter-spacing: -0.02em;
-      line-height: 1.2;
-      margin-bottom: var(--space-sm);
+    /* ── Empty state ─────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 44px 20px;
     }
-
-    header p {
-      font-size: var(--text-sm);
-      font-weight: var(--weight-medium);
-      letter-spacing: 0.02em;
-      color: var(--text-secondary);
-    }
-
-    /* Input text refinement - 16px prevents zoom on mobile */
-    #taskInput {
-      font-family: inherit;
+    .empty-state p {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
       font-size: 16px;
-      font-weight: var(--weight-normal);
-      line-height: 1.5;
-    }
-    #taskInput:focus {
-      border-color: var(--accent-cyan);
-      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.3);
-      transform: translateY(-1px);
+      color: var(--text-muted);
     }
 
-    /* Task text typography */
-    .task-text {
-      font-size: var(--text-base);
-      line-height: 1.6;
-      word-break: break-word;
-    }
-
-    /* font-size/font-weight on text moved to card; no overrides here */
-
-    /* Button typography */
-    #addBtn {
-      font-size: var(--text-sm);
-      font-weight: var(--weight-semibold);
-      letter-spacing: 0.01em;
-      text-transform: none;
-    }
-    #addBtn:hover {
-      transform: translateY(-2px) scale(1.04);
-      box-shadow: 0 6px 20px rgba(34, 211, 238, 0.4);
-    }
-    #addBtn:active {
-      transform: translateY(0) scale(0.95);
-      box-shadow: 0 2px 8px rgba(34, 211, 238, 0.3);
-    }
-
-    .delete-btn {
-      font-size: var(--text-sm);
-    }
-
-    /* Priority badge typography block removed; handled by base styles above. */
-    /* Completion animation styles (Wave 4) */
-    .task-card.completing {
-      animation: fadeOut 0.3s ease forwards;
-    }
-    @keyframes fadeOut {
-      from { opacity: 1; transform: scale(1); }
-      to { opacity: 0; transform: scale(0.95); }
-    }
-    /* Responsive: Mobile (375px) */
+    /* ── Responsive ──────────────────────────── */
     @media (max-width: 480px) {
-      header h1 { font-size: var(--text-2xl); }
-      .task-card { padding: 12px; gap: 8px; }
-      #addBtn { padding: 8px 16px; font-size: var(--text-xs); min-height: 36px; width: auto; }
-      #taskInput { font-size: 16px; flex: 1; }
-      .input-section { flex-wrap: wrap; gap: 8px; }
-      .input-section label { font-size: 14px; }
-      .input-section label input[type="checkbox"] { width: 18px; height: 18px; }
+      .app-container { padding: 36px 16px 60px; }
+      .day-name { font-size: 2.3rem; }
+      #addBtn { padding: 11px 16px; font-size: 13px; }
     }
-    /* Responsive: Tablet (768px) */
-    @media (min-width: 481px) and (max-width: 1024px) {
-      .app-container { padding: 20px 24px; }
-    }
-    /* Responsive: Desktop (1920px) */
-    @media (min-width: 1025px) {
-      .app-container { padding: 20px 40px; }
-    }
-    </style>
-  </head>
-  <body>
-    <!-- OMO_INTERNAL_INITIATOR -->
-    <div class="app-container">
-      <header>
-        <h1>Vivid To-Do</h1>
-        <p>Beautiful. Simple. Effective.</p>
-      </header>
+  </style>
+</head>
+<body>
+  <div class="app-container">
 
-      <section class="input-section">
+    <header>
+      <span class="wordmark">Vivid</span>
+      <div class="day-name" id="dayName">Thursday</div>
+      <div class="date-line" id="dateStr">May 15, 2026</div>
+      <div class="divider"><div class="divider-dot"></div></div>
+    </header>
+
+    <div class="input-card">
+      <div class="input-row">
         <input id="taskInput" type="text" placeholder="What needs to be done?">
+        <button id="addBtn">Add</button>
+      </div>
+      <div class="input-meta">
         <label class="important-label">
-          <input id="importantCheck" type="checkbox"> Important
+          <input id="importantCheck" type="checkbox"> Mark as important
         </label>
-        <button id="addBtn">+ Add Task</button>
-      </section>
+      </div>
+    </div>
 
-      <section class="tasks-section">
-        <div id="tasksContainer"></div>
-      </section>
+    <section>
+      <div class="section-header">
+        <span class="section-label">Today's Tasks</span>
+        <span class="task-counter" id="taskCount"></span>
+      </div>
+      <div id="tasksContainer"></div>
+    </section>
 
-      <!-- JS will be added here in later tasks -->
-      <script>
-        // Wave 2 Task Management (Task 4)
-      let tasks = [];
-      let nextId = Date.now();
+  </div>
 
-        const taskInput = document.getElementById('taskInput');
-        const importantCheck = document.getElementById('importantCheck');
-        const addBtn = document.getElementById('addBtn');
-        const tasksContainer = document.getElementById('tasksContainer');
-        const STORAGE_KEY = 'vivid-todo-tasks';
+  <script>
+    // Date display
+    (function () {
+      const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const now = new Date();
+      document.getElementById('dayName').textContent = days[now.getDay()];
+      document.getElementById('dateStr').textContent =
+        months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
+    })();
 
-        function escapeHtml(text) {
-          const div = document.createElement('div');
-          div.textContent = text;
-          return div.innerHTML;
-        }
+    function updateTaskCount() {
+      const remaining = tasks.filter(t => !t.completed).length;
+      const total = tasks.length;
+      const el = document.getElementById('taskCount');
+      if (!el) return;
+      if (total === 0) { el.textContent = ''; return; }
+      el.textContent = remaining === 0 ? 'All done' : remaining + ' of ' + total + ' remaining';
+    }
 
-        function saveTasks() {
-          try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ tasks, nextId }));
-          } catch (e) {
-            // ignore
-          }
-        }
+    // ── Core task logic (preserved) ──────────────────────────────────────────
 
-        function renderTasks() {
-          tasksContainer.innerHTML = '';
-          tasks.forEach(task => {
-            const card = document.createElement('div');
-            card.className = 'task-card' +
-              (task.important ? ' important' : '') +
-              (task.completed ? ' completed' : '');
-            card.dataset.id = task.id;
-              const dateStr = task.createdAt ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-              card.innerHTML = `
-              <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
-              <div class="task-content">
-                <span class="task-text">${escapeHtml(task.text)}</span>
-                <span class="task-date">${dateStr}</span>
-                ${task.important ? '<span class="priority-badge">🔥 Important</span>' : ''}
-              </div>
-              <button class="delete-btn" title="Delete task">✕</button>
-            `;
-            const checkbox = card.querySelector('.task-checkbox');
-            const delBtn = card.querySelector('.delete-btn');
-            if (checkbox) checkbox.addEventListener('change', () => toggleComplete(task.id));
-            if (delBtn) delBtn.addEventListener('click', () => deleteTask(task.id));
-            tasksContainer.appendChild(card);
-          });
-        }
+    let tasks = [];
+    let nextId = Date.now();
 
-        function addTask() {
-          const text = taskInput.value.trim();
-          if (!text) return;
-            const task = {
-              id: Date.now(),
-            text: text,
-            important: importantCheck.checked,
-            completed: false,
-            createdAt: Date.now()
-          };
-          tasks.push(task);
-          taskInput.value = '';
-          importantCheck.checked = false;
+    const taskInput       = document.getElementById('taskInput');
+    const importantCheck  = document.getElementById('importantCheck');
+    const addBtn          = document.getElementById('addBtn');
+    const tasksContainer  = document.getElementById('tasksContainer');
+    const STORAGE_KEY     = 'vivid-todo-tasks';
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function saveTasks() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ tasks, nextId }));
+      } catch (e) { /* ignore */ }
+    }
+
+    function renderTasks() {
+      tasksContainer.innerHTML = '';
+      if (tasks.length === 0) {
+        tasksContainer.innerHTML =
+          '<div class="empty-state"><p>Nothing here yet — add your first task</p></div>';
+        updateTaskCount();
+        return;
+      }
+      tasks.forEach(task => {
+        const card = document.createElement('div');
+        card.className = 'task-card' +
+          (task.important ? ' important' : '') +
+          (task.completed  ? ' completed'  : '');
+        card.dataset.id = task.id;
+        card.innerHTML = `
+          <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
+          <div class="task-content">
+            <span class="task-text">${escapeHtml(task.text)}</span>
+            ${task.important ? '<span class="priority-badge">Important</span>' : ''}
+          </div>
+          <button class="delete-btn" title="Delete task">✕</button>
+        `;
+        const checkbox = card.querySelector('.task-checkbox');
+        const delBtn   = card.querySelector('.delete-btn');
+        if (checkbox) checkbox.addEventListener('change', () => toggleComplete(task.id));
+        if (delBtn)   delBtn.addEventListener('click',   () => deleteTask(task.id));
+        tasksContainer.appendChild(card);
+      });
+      updateTaskCount();
+    }
+
+    function addTask() {
+      const text = taskInput.value.trim();
+      if (!text) return;
+      const task = {
+        id: Date.now(),
+        text: text,
+        important: importantCheck.checked,
+        completed: false,
+        createdAt: Date.now()
+      };
+      tasks.push(task);
+      taskInput.value = '';
+      importantCheck.checked = false;
+      renderTasks();
+      saveTasks();
+    }
+
+    function deleteTask(id) {
+      const card = tasksContainer.querySelector(`[data-id="${id}"]`);
+      if (card) {
+        card.classList.add('completing');
+        setTimeout(() => {
+          tasks = tasks.filter(t => t.id !== id);
           renderTasks();
           saveTasks();
-        }
+        }, 300);
+      } else {
+        tasks = tasks.filter(t => t.id !== id);
+        renderTasks();
+        saveTasks();
+      }
+    }
 
-        function deleteTask(id) {
+    function toggleComplete(id) {
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        task.completed = !task.completed;
+        renderTasks();
+        saveTasks();
+        if (task.completed) {
           const card = tasksContainer.querySelector(`[data-id="${id}"]`);
           if (card) {
-            card.classList.add('completing');
-            setTimeout(() => {
-              tasks = tasks.filter(t => t.id !== id);
-              renderTasks();
-              saveTasks();
-            }, 300);  // Wait for fadeOut animation
-          } else {
-            tasks = tasks.filter(t => t.id !== id);
-            renderTasks();
-            saveTasks();
+            card.style.boxShadow = '0 0 0 2px rgba(200,75,49,0.25)';
+            setTimeout(() => { card.style.boxShadow = ''; }, 500);
           }
         }
+      }
+    }
 
-        function toggleComplete(id) {
-          const task = tasks.find(t => t.id === id);
-          if (task) {
-            task.completed = !task.completed;
-            renderTasks();
-            saveTasks();
-
-            // Visual feedback: brief green flash
-            if (task.completed) {
-              const card = tasksContainer.querySelector(`[data-id="${id}"]`);
-              if (card) {
-                card.style.boxShadow = '0 0 20px rgba(34, 197, 94, 0.5)';
-                setTimeout(() => {
-                  card.style.boxShadow = '';
-                }, 500);
-              }
-            }
-          }
+    function loadTasks() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (Array.isArray(data.tasks))        tasks  = data.tasks;
+          if (typeof data.nextId === 'number')  nextId = data.nextId;
         }
+      } catch (e) { /* ignore */ }
+      renderTasks();
+    }
 
-        function loadTasks() {
-          try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-              const data = JSON.parse(saved);
-              if (Array.isArray(data.tasks)) tasks = data.tasks;
-              if (typeof data.nextId === 'number') nextId = data.nextId;
-            }
-          } catch (e) {
-            // ignore
-          }
-          renderTasks();
-        }
-
-        // Wait for DOM to be fully loaded before initializing
-        document.addEventListener('DOMContentLoaded', () => {
-          loadTasks();
-
-          addBtn.addEventListener('click', addTask);
-
-          taskInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') addTask();
-          });
-        });
-      </script>
-    </div>
-  </body>
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTasks();
+      addBtn.addEventListener('click', addTask);
+      taskInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addTask();
+      });
+    });
+  </script>
+</body>
 </html>
