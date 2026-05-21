@@ -142,6 +142,9 @@ export default function TalkClient() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const timerIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  // Pre-fetched TTS blob URL — lets KakaoTalk WebView play audio from a direct tap (no async between gesture and play)
+  const pendingAudioRef = useRef<{ idx: number; url: string } | null>(null);
+  const playingAudioRef = useRef<HTMLAudioElement | null>(null);
 
 useEffect(() => {
     const w = window as Window & { SpeechRecognition?: ISpeechRecognitionCtor; webkitSpeechRecognition?: ISpeechRecognitionCtor };
@@ -207,6 +210,12 @@ useEffect(() => {
       setHighlight(null);
       setTtsLoading(idx);
 
+      // Stop any in-progress HTML Audio
+      if (playingAudioRef.current) {
+        playingAudioRef.current.pause();
+        playingAudioRef.current = null;
+      }
+
       // ── Try Google TTS ────────────────────────────────────────────────────
       try {
         // Create / resume AudioContext before the fetch (while closer to the gesture)
@@ -221,13 +230,25 @@ useEffect(() => {
         });
 
         if (res.ok) {
-          const buf = await res.arrayBuffer();
+          const rawBuf = await res.arrayBuffer();
+
+          // Store blob URL so a direct tap can play it synchronously (KakaoTalk WebView)
+          if (pendingAudioRef.current) URL.revokeObjectURL(pendingAudioRef.current.url);
+          const blobUrl = URL.createObjectURL(new Blob([rawBuf], { type: "audio/mpeg" }));
+          pendingAudioRef.current = { idx, url: blobUrl };
+
+          const cleanupBlob = () => {
+            if (pendingAudioRef.current?.idx === idx) {
+              URL.revokeObjectURL(pendingAudioRef.current.url);
+              pendingAudioRef.current = null;
+            }
+          };
 
           // ── Try AudioContext (best quality) ──────────────────────────────
           let played = false;
           try {
             if (ctx.state === "suspended") await ctx.resume();
-            const audioBuf = await ctx.decodeAudioData(buf.slice(0));
+            const audioBuf = await ctx.decodeAudioData(rawBuf.slice(0));
             const source = ctx.createBufferSource();
             source.buffer = audioBuf;
             source.connect(ctx.destination);
@@ -245,7 +266,7 @@ useEffect(() => {
               timerIdsRef.current.push(setTimeout(() => setHighlight(null), durationMs + 100));
             }
 
-            source.onended = () => { clearTimers(); setHighlight(null); };
+            source.onended = () => { cleanupBlob(); clearTimers(); setHighlight(null); };
             setTtsLoading(null);
             source.start(0);
             played = true;
@@ -253,23 +274,25 @@ useEffect(() => {
             console.warn("[TTS] AudioContext failed:", ctxErr, "— HTML Audio fallback");
           }
 
-          // ── Try HTML Audio blob URL (Chrome sticky-activation fallback) ──
+          // ── Try HTML Audio (Chrome async fallback) ───────────────────────
           if (!played) {
             try {
-              const blob = new Blob([buf], { type: "audio/mpeg" });
-              const url = URL.createObjectURL(blob);
-              const audio = new Audio(url);
-              audio.onended = () => { URL.revokeObjectURL(url); clearTimers(); setHighlight(null); };
-              audio.onerror = () => { URL.revokeObjectURL(url); clearTimers(); setHighlight(null); };
+              const audio = new Audio(blobUrl);
+              playingAudioRef.current = audio;
+              audio.onended = () => { playingAudioRef.current = null; cleanupBlob(); clearTimers(); setHighlight(null); };
+              audio.onerror = () => { playingAudioRef.current = null; clearTimers(); setHighlight(null); };
               setTtsLoading(null);
               await audio.play();
               played = true;
             } catch (audioErr) {
-              console.warn("[TTS] HTML Audio failed:", audioErr, "— browser TTS fallback");
+              console.warn("[TTS] HTML Audio failed:", audioErr, "— tap-to-play ready");
+              playingAudioRef.current = null;
             }
           }
 
-          if (played) return;
+          // Blob URL stays in pendingAudioRef for direct-tap play (KakaoTalk WebView)
+          if (!played) setTtsLoading(null);
+          return; // API succeeded — don't fall through to speechSynthesis
         } else {
           const body = await res.json().catch(() => ({})) as { detail?: string };
           console.warn("[TTS] API →", body.detail ?? res.status, "— browser TTS fallback");
@@ -312,6 +335,38 @@ useEffect(() => {
       window.speechSynthesis.speak(utt);
     },
     [dialect, gender, clearTimers]
+  );
+
+  // Tap handler for the speaker button.
+  // If the TTS audio was pre-fetched, play() is called synchronously from the gesture —
+  // this satisfies KakaoTalk WebView's strict "no async before play" requirement.
+  const handleTTSButton = useCallback(
+    (text: string, idx: number) => {
+      if (pendingAudioRef.current?.idx === idx) {
+        const { url } = pendingAudioRef.current;
+        if (playingAudioRef.current) {
+          playingAudioRef.current.pause();
+          playingAudioRef.current = null;
+        }
+        clearTimers();
+        setHighlight(null);
+        const audio = new Audio(url);
+        playingAudioRef.current = audio;
+        audio.onended = () => {
+          playingAudioRef.current = null;
+          if (pendingAudioRef.current?.url === url) {
+            URL.revokeObjectURL(url);
+            pendingAudioRef.current = null;
+          }
+          clearTimers();
+          setHighlight(null);
+        };
+        void audio.play().catch(() => { playingAudioRef.current = null; });
+        return;
+      }
+      void playTTS(text, idx);
+    },
+    [clearTimers, playTTS]
   );
 
   // ── Chat ───────────────────────────────────────────────────────────────────
@@ -480,7 +535,7 @@ useEffect(() => {
                 </p>
                 {msg.role === "assistant" && (
                   <button
-                    onClick={() => playTTS(msg.spanish, idx)}
+                    onClick={() => handleTTSButton(msg.spanish, idx)}
                     disabled={ttsLoading === idx}
                     className="text-gray-400 hover:text-white mt-0.5 flex-shrink-0 disabled:opacity-50 transition-colors"
                     title="다시 듣기"
