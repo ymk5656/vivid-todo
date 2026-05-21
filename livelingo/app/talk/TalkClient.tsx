@@ -148,20 +148,11 @@ useEffect(() => {
     if (!w.SpeechRecognition && !w.webkitSpeechRecognition) setSttSupported(false);
   }, []);
 
-  // Unlock AudioContext on every gesture; play a 1-frame silent buffer so iOS keeps it running
+  // Unlock AudioContext on every gesture
   useEffect(() => {
     const unlock = () => {
       if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-      const ctx = audioCtxRef.current;
-      if (ctx.state === "suspended") {
-        ctx.resume().then(() => {
-          const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
-          const src = ctx.createBufferSource();
-          src.buffer = buf;
-          src.connect(ctx.destination);
-          src.start(0);
-        }).catch(() => {});
-      }
+      if (audioCtxRef.current.state === "suspended") void audioCtxRef.current.resume();
     };
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", unlock);
@@ -216,8 +207,13 @@ useEffect(() => {
       setHighlight(null);
       setTtsLoading(idx);
 
-      // ── Try Google TTS via AudioContext ──────────────────────────────────
+      // ── Try Google TTS ────────────────────────────────────────────────────
       try {
+        // Create / resume AudioContext before the fetch (while closer to the gesture)
+        if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+        const ctx = audioCtxRef.current;
+        if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+
         const res = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -227,32 +223,53 @@ useEffect(() => {
         if (res.ok) {
           const buf = await res.arrayBuffer();
 
-          if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-          const ctx = audioCtxRef.current;
-          if (ctx.state === "suspended") await ctx.resume();
+          // ── Try AudioContext (best quality) ──────────────────────────────
+          let played = false;
+          try {
+            if (ctx.state === "suspended") await ctx.resume();
+            const audioBuf = await ctx.decodeAudioData(buf.slice(0));
+            const source = ctx.createBufferSource();
+            source.buffer = audioBuf;
+            source.connect(ctx.destination);
 
-          const audioBuf = await ctx.decodeAudioData(buf);
-          const source = ctx.createBufferSource();
-          source.buffer = audioBuf;
-          source.connect(ctx.destination);
+            const durationMs = audioBuf.duration * 1000;
+            if (isFinite(durationMs) && durationMs > 0) {
+              const wordRanges = buildWordRanges(text);
+              wordRanges.forEach((w, i) => {
+                const t = setTimeout(
+                  () => setHighlight({ idx, start: w.start, len: w.len }),
+                  (i / wordRanges.length) * durationMs
+                );
+                timerIdsRef.current.push(t);
+              });
+              timerIdsRef.current.push(setTimeout(() => setHighlight(null), durationMs + 100));
+            }
 
-          const durationMs = audioBuf.duration * 1000;
-          if (isFinite(durationMs) && durationMs > 0) {
-            const wordRanges = buildWordRanges(text);
-            wordRanges.forEach((w, i) => {
-              const t = setTimeout(
-                () => setHighlight({ idx, start: w.start, len: w.len }),
-                (i / wordRanges.length) * durationMs
-              );
-              timerIdsRef.current.push(t);
-            });
-            timerIdsRef.current.push(setTimeout(() => setHighlight(null), durationMs + 100));
+            source.onended = () => { clearTimers(); setHighlight(null); };
+            setTtsLoading(null);
+            source.start(0);
+            played = true;
+          } catch (ctxErr) {
+            console.warn("[TTS] AudioContext failed:", ctxErr, "— HTML Audio fallback");
           }
 
-          source.onended = () => { clearTimers(); setHighlight(null); };
-          setTtsLoading(null);
-          source.start(0);
-          return;
+          // ── Try HTML Audio blob URL (Chrome sticky-activation fallback) ──
+          if (!played) {
+            try {
+              const blob = new Blob([buf], { type: "audio/mpeg" });
+              const url = URL.createObjectURL(blob);
+              const audio = new Audio(url);
+              audio.onended = () => { URL.revokeObjectURL(url); clearTimers(); setHighlight(null); };
+              audio.onerror = () => { URL.revokeObjectURL(url); clearTimers(); setHighlight(null); };
+              setTtsLoading(null);
+              await audio.play();
+              played = true;
+            } catch (audioErr) {
+              console.warn("[TTS] HTML Audio failed:", audioErr, "— browser TTS fallback");
+            }
+          }
+
+          if (played) return;
         } else {
           const body = await res.json().catch(() => ({})) as { detail?: string };
           console.warn("[TTS] API →", body.detail ?? res.status, "— browser TTS fallback");
@@ -479,9 +496,6 @@ useEffect(() => {
                 </p>
               )}
 
-              {msg.role === "assistant" && msg.correction && msg.correction !== "없음" && (
-                <p className="mt-1 text-xs text-yellow-400">✏️ {msg.correction}</p>
-              )}
             </div>
           </div>
         ))}
