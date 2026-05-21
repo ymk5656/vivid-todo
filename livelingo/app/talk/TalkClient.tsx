@@ -142,9 +142,9 @@ export default function TalkClient() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const timerIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  // Pre-fetched TTS blob URL — lets KakaoTalk WebView play audio from a direct tap (no async between gesture and play)
   const pendingAudioRef = useRef<{ idx: number; url: string } | null>(null);
   const playingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
 
 useEffect(() => {
     const w = window as Window & { SpeechRecognition?: ISpeechRecognitionCtor; webkitSpeechRecognition?: ISpeechRecognitionCtor };
@@ -232,15 +232,16 @@ useEffect(() => {
         if (res.ok) {
           const rawBuf = await res.arrayBuffer();
 
-          // Store blob URL so a direct tap can play it synchronously (KakaoTalk WebView)
-          if (pendingAudioRef.current) URL.revokeObjectURL(pendingAudioRef.current.url);
-          const blobUrl = URL.createObjectURL(new Blob([rawBuf], { type: "audio/mpeg" }));
-          pendingAudioRef.current = { idx, url: blobUrl };
+          // Store as data URL — blob: URLs are blocked in KakaoTalk WebView; data URLs work everywhere
+          const dataUrl = arrayBufferToDataUrl(rawBuf);
+          pendingAudioRef.current = { idx, url: dataUrl };
+          // Pre-load into DOM <audio> element so play() is instant on tap
+          if (audioElRef.current) { audioElRef.current.src = dataUrl; audioElRef.current.load(); }
 
-          const cleanupBlob = () => {
+          const cleanupAudio = () => {
             if (pendingAudioRef.current?.idx === idx) {
-              URL.revokeObjectURL(pendingAudioRef.current.url);
               pendingAudioRef.current = null;
+              if (audioElRef.current) audioElRef.current.src = '';
             }
           };
 
@@ -266,7 +267,7 @@ useEffect(() => {
               timerIdsRef.current.push(setTimeout(() => setHighlight(null), durationMs + 100));
             }
 
-            source.onended = () => { cleanupBlob(); clearTimers(); setHighlight(null); };
+            source.onended = () => { cleanupAudio(); clearTimers(); setHighlight(null); };
             setTtsLoading(null);
             source.start(0);
             played = true;
@@ -277,9 +278,9 @@ useEffect(() => {
           // ── Try HTML Audio (Chrome async fallback) ───────────────────────
           if (!played) {
             try {
-              const audio = new Audio(blobUrl);
+              const audio = new Audio(dataUrl);
               playingAudioRef.current = audio;
-              audio.onended = () => { playingAudioRef.current = null; cleanupBlob(); clearTimers(); setHighlight(null); };
+              audio.onended = () => { playingAudioRef.current = null; cleanupAudio(); clearTimers(); setHighlight(null); };
               audio.onerror = () => { playingAudioRef.current = null; clearTimers(); setHighlight(null); };
               setTtsLoading(null);
               await audio.play();
@@ -338,30 +339,30 @@ useEffect(() => {
   );
 
   // Tap handler for the speaker button.
-  // If the TTS audio was pre-fetched, play() is called synchronously from the gesture —
-  // this satisfies KakaoTalk WebView's strict "no async before play" requirement.
+  // Pre-fetched audio is stored as a data URL and pre-loaded into a DOM <audio> element.
+  // play() is called synchronously in the gesture handler — satisfies KakaoTalk WebView policy.
   const handleTTSButton = useCallback(
     (text: string, idx: number) => {
       if (pendingAudioRef.current?.idx === idx) {
-        const { url } = pendingAudioRef.current;
+        clearTimers();
+        setHighlight(null);
         if (playingAudioRef.current) {
           playingAudioRef.current.pause();
           playingAudioRef.current = null;
         }
-        clearTimers();
-        setHighlight(null);
-        const audio = new Audio(url);
-        playingAudioRef.current = audio;
-        audio.onended = () => {
-          playingAudioRef.current = null;
-          if (pendingAudioRef.current?.url === url) {
-            URL.revokeObjectURL(url);
-            pendingAudioRef.current = null;
-          }
-          clearTimers();
-          setHighlight(null);
-        };
-        void audio.play().catch(() => { playingAudioRef.current = null; });
+        const audioEl = audioElRef.current;
+        if (audioEl) {
+          // DOM element already pre-loaded — play() fires synchronously from gesture (KakaoTalk-safe)
+          audioEl.currentTime = 0;
+          audioEl.onended = () => { clearTimers(); setHighlight(null); pendingAudioRef.current = null; audioEl.src = ''; };
+          void audioEl.play().catch(() => {});
+        } else {
+          const { url } = pendingAudioRef.current;
+          const audio = new Audio(url);
+          playingAudioRef.current = audio;
+          audio.onended = () => { playingAudioRef.current = null; pendingAudioRef.current = null; clearTimers(); setHighlight(null); };
+          void audio.play().catch(() => { playingAudioRef.current = null; });
+        }
         return;
       }
       void playTTS(text, idx);
@@ -596,6 +597,9 @@ useEffect(() => {
         />
       )}
 
+      {/* Hidden audio element — pre-loaded with TTS data URL for KakaoTalk-compatible synchronous play */}
+      <audio ref={audioElRef} preload="none" className="hidden" />
+
       <div className="sticky bottom-0 z-10 px-4 pt-3 pb-4 border-t border-gray-800 bg-gray-950">
         <div className="flex items-center gap-2">
           <input
@@ -764,6 +768,16 @@ function SummaryModal({
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function arrayBufferToDataUrl(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 8192;
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+    parts.push(String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.byteLength))));
+  }
+  return `data:audio/mpeg;base64,${btoa(parts.join(''))}`;
+}
 
 function buildWordRanges(text: string): { start: number; len: number }[] {
   const ranges: { start: number; len: number }[] = [];
