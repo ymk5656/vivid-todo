@@ -151,8 +151,12 @@ useEffect(() => {
     if (!w.SpeechRecognition && !w.webkitSpeechRecognition) setSttSupported(false);
   }, []);
 
-  // Unlock AudioContext on every gesture
+  // Unlock AudioContext on every gesture — also initialize immediately to capture navigation-click gesture window
   useEffect(() => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContext();
+      void audioCtxRef.current.resume().catch(() => {});
+    }
     const unlock = () => {
       if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
       if (audioCtxRef.current.state === "suspended") void audioCtxRef.current.resume();
