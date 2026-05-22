@@ -145,6 +145,7 @@ export default function TalkClient() {
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasGreetedRef = useRef(false);
   const sendProactiveRef = useRef<(trigger: "greet" | "followup") => void>(() => {});
+  const loadingRef = useRef(false);
 
 useEffect(() => {
     const w = window as Window & { SpeechRecognition?: ISpeechRecognitionCtor; webkitSpeechRecognition?: ISpeechRecognitionCtor };
@@ -209,8 +210,9 @@ useEffect(() => {
   // ── Proactive AI ──────────────────────────────────────────────────────────
   const sendProactiveMessage = useCallback(
     async (trigger: "greet" | "followup") => {
-      if (loading) return;
+      if (loadingRef.current) return;
       if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null; }
+      loadingRef.current = true;
       setLoading(true);
       try {
         const res = await fetch("/api/chat", {
@@ -233,11 +235,12 @@ useEffect(() => {
       } catch {
         // silently ignore proactive errors
       } finally {
+        loadingRef.current = false;
         setLoading(false);
         inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 10000);
       }
     },
-    [loading, dialect, gender, level, messages, playTTS]
+    [dialect, gender, level, messages, playTTS]
   );
 
   useEffect(() => { sendProactiveRef.current = sendProactiveMessage; }, [sendProactiveMessage]);
@@ -376,6 +379,7 @@ useEffect(() => {
       if (!text.trim()) return;
       if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null; }
       setInput("");
+      loadingRef.current = true;
       setLoading(true);
 
       setMessages((prev) => [...prev, { role: "user", spanish: text }]);
@@ -422,6 +426,7 @@ useEffect(() => {
           },
         ]);
       } finally {
+        loadingRef.current = false;
         setLoading(false);
         inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 10000);
       }
