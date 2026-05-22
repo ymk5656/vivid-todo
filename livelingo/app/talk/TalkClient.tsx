@@ -136,8 +136,6 @@ export default function TalkClient() {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [audioReady, setAudioReady] = useState(false);
-
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const transcriptRef = useRef("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -153,8 +151,14 @@ useEffect(() => {
     if (!w.SpeechRecognition && !w.webkitSpeechRecognition) setSttSupported(false);
   }, []);
 
-  // Unlock AudioContext on every subsequent gesture (handles lock after tab switch, etc.)
+  // On mount: grab pre-created AudioContext from the navigation gesture (window.__audioCtx)
+  // then keep unlock handler for subsequent gestures (tab switch, etc.)
   useEffect(() => {
+    const w = window as Window & { __audioCtx?: AudioContext };
+    if (w.__audioCtx && w.__audioCtx.state === "running") {
+      audioCtxRef.current = w.__audioCtx;
+      w.__audioCtx = undefined;
+    }
     const unlock = () => {
       if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
       if (audioCtxRef.current.state === "suspended") void audioCtxRef.current.resume();
@@ -247,21 +251,13 @@ useEffect(() => {
 
   useEffect(() => { sendProactiveRef.current = sendProactiveMessage; }, [sendProactiveMessage]);
 
-  // Called when user taps the start overlay — creates AudioContext within the gesture
-  const handleStartTap = useCallback(() => {
-    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-    void audioCtxRef.current.resume().catch(() => {});
-    setAudioReady(true);
-  }, []);
-
-  // Greet once audio is ready (after user taps the overlay)
+  // Greet on mount — AudioContext is already running from window.__audioCtx (set during navigation gesture)
   useEffect(() => {
-    if (!audioReady) return;
     if (hasGreetedRef.current) return;
     hasGreetedRef.current = true;
-    const t = setTimeout(() => sendProactiveRef.current("greet"), 300);
+    const t = setTimeout(() => sendProactiveRef.current("greet"), 600);
     return () => clearTimeout(t);
-  }, [audioReady]);
+  }, []);
 
   // Cleanup inactivity timer on unmount
   useEffect(() => {
@@ -483,19 +479,6 @@ useEffect(() => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <>
-    {!audioReady && (
-      <div
-        onClick={handleStartTap}
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-950 cursor-pointer select-none"
-      >
-        <div className="flex flex-col items-center gap-6 text-center px-8">
-          <div className="text-6xl animate-pulse">🔊</div>
-          <p className="text-white text-xl font-semibold">화면을 탭하여 시작</p>
-          <p className="text-gray-400 text-sm mt-1">소리를 켜고 AI 튜터와 대화를 시작합니다</p>
-        </div>
-      </div>
-    )}
     <div className="flex flex-col h-[100dvh] max-w-2xl mx-auto">
       <header className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-950">
         <Link href="/" className="text-gray-400 hover:text-white text-sm">
@@ -682,7 +665,6 @@ useEffect(() => {
         )}
       </div>
     </div>
-    </>
   );
 }
 
