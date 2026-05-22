@@ -234,7 +234,7 @@ useEffect(() => {
         // silently ignore proactive errors
       } finally {
         setLoading(false);
-        inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 30000);
+        inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 10000);
       }
     },
     [loading, dialect, gender, level, messages, playTTS]
@@ -423,7 +423,7 @@ useEffect(() => {
         ]);
       } finally {
         setLoading(false);
-        inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 30000);
+        inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 10000);
       }
     },
     [dialect, gender, level, messages, playTTS]
