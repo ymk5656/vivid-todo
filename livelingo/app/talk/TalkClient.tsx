@@ -136,6 +136,7 @@ export default function TalkClient() {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
 
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const transcriptRef = useRef("");
@@ -152,12 +153,8 @@ useEffect(() => {
     if (!w.SpeechRecognition && !w.webkitSpeechRecognition) setSttSupported(false);
   }, []);
 
-  // Unlock AudioContext on every gesture — also initialize immediately to capture navigation-click gesture window
+  // Unlock AudioContext on every subsequent gesture (handles lock after tab switch, etc.)
   useEffect(() => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioContext();
-      void audioCtxRef.current.resume().catch(() => {});
-    }
     const unlock = () => {
       if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
       if (audioCtxRef.current.state === "suspended") void audioCtxRef.current.resume();
@@ -233,7 +230,12 @@ useEffect(() => {
         setMessages((prev) => [...prev, aiMsg]);
         void playTTS(aiMsg.spanish, aiIdx);
       } catch {
-        // silently ignore proactive errors
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          spanish: "Lo siento, hubo un problema de conexión. Por favor, recarga la página.",
+          korean: "연결 오류가 발생했습니다. 페이지를 새로고침해주세요.",
+          correction: "없음",
+        }]);
       } finally {
         loadingRef.current = false;
         setLoading(false);
@@ -245,13 +247,21 @@ useEffect(() => {
 
   useEffect(() => { sendProactiveRef.current = sendProactiveMessage; }, [sendProactiveMessage]);
 
-  // Greet on mount
+  // Called when user taps the start overlay — creates AudioContext within the gesture
+  const handleStartTap = useCallback(() => {
+    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+    void audioCtxRef.current.resume().catch(() => {});
+    setAudioReady(true);
+  }, []);
+
+  // Greet once audio is ready (after user taps the overlay)
   useEffect(() => {
+    if (!audioReady) return;
     if (hasGreetedRef.current) return;
     hasGreetedRef.current = true;
-    const t = setTimeout(() => sendProactiveRef.current("greet"), 600);
+    const t = setTimeout(() => sendProactiveRef.current("greet"), 300);
     return () => clearTimeout(t);
-  }, []);
+  }, [audioReady]);
 
   // Cleanup inactivity timer on unmount
   useEffect(() => {
@@ -473,6 +483,19 @@ useEffect(() => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
+    <>
+    {!audioReady && (
+      <div
+        onClick={handleStartTap}
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-950 cursor-pointer select-none"
+      >
+        <div className="flex flex-col items-center gap-6 text-center px-8">
+          <div className="text-6xl animate-pulse">🔊</div>
+          <p className="text-white text-xl font-semibold">화면을 탭하여 시작</p>
+          <p className="text-gray-400 text-sm mt-1">소리를 켜고 AI 튜터와 대화를 시작합니다</p>
+        </div>
+      </div>
+    )}
     <div className="flex flex-col h-[100dvh] max-w-2xl mx-auto">
       <header className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-950">
         <Link href="/" className="text-gray-400 hover:text-white text-sm">
@@ -659,6 +682,7 @@ useEffect(() => {
         )}
       </div>
     </div>
+    </>
   );
 }
 
