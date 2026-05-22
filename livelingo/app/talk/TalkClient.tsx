@@ -142,6 +142,9 @@ export default function TalkClient() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const timerIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasGreetedRef = useRef(false);
+  const sendProactiveRef = useRef<(trigger: "greet" | "followup") => void>(() => {});
 
 useEffect(() => {
     const w = window as Window & { SpeechRecognition?: ISpeechRecognitionCtor; webkitSpeechRecognition?: ISpeechRecognitionCtor };
@@ -198,6 +201,55 @@ useEffect(() => {
       setSummaryLoading(false);
     }
   }, [messages, dialect]);
+
+  // ── Proactive AI ──────────────────────────────────────────────────────────
+  const sendProactiveMessage = useCallback(
+    async (trigger: "greet" | "followup") => {
+      if (loading) return;
+      if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null; }
+      setLoading(true);
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            trigger,
+            dialect,
+            gender,
+            level,
+            history: messages.map((m) => ({ role: m.role, content: m.spanish })),
+          }),
+        });
+        const data = (await res.json()) as { spanish?: string; korean?: string; error?: string };
+        if (!res.ok || !data.spanish) throw new Error(data.error ?? "API error");
+        const aiMsg: Message = { role: "assistant", spanish: data.spanish, korean: data.korean ?? "", correction: "없음" };
+        const aiIdx = messages.length;
+        setMessages((prev) => [...prev, aiMsg]);
+        void playTTS(aiMsg.spanish, aiIdx);
+      } catch {
+        // silently ignore proactive errors
+      } finally {
+        setLoading(false);
+        inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 30000);
+      }
+    },
+    [loading, dialect, gender, level, messages, playTTS]
+  );
+
+  useEffect(() => { sendProactiveRef.current = sendProactiveMessage; }, [sendProactiveMessage]);
+
+  // Greet on mount
+  useEffect(() => {
+    if (hasGreetedRef.current) return;
+    hasGreetedRef.current = true;
+    const t = setTimeout(() => sendProactiveRef.current("greet"), 600);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Cleanup inactivity timer on unmount
+  useEffect(() => {
+    return () => { if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current); };
+  }, []);
 
   // ── TTS ────────────────────────────────────────────────────────────────────
   const playTTS = useCallback(
@@ -318,6 +370,7 @@ useEffect(() => {
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim()) return;
+      if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null; }
       setInput("");
       setLoading(true);
 
@@ -366,6 +419,7 @@ useEffect(() => {
         ]);
       } finally {
         setLoading(false);
+        inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 30000);
       }
     },
     [dialect, gender, level, messages, playTTS]
@@ -448,10 +502,17 @@ useEffect(() => {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-2">
-            <span className="text-4xl">💬</span>
-            <p className="text-sm text-center">
-              마이크 버튼을 누르거나 텍스트를 입력해서 대화를 시작하세요
-            </p>
+            {loading ? (
+              <>
+                <span className="text-4xl animate-pulse">💬</span>
+                <p className="text-sm">연결 중...</p>
+              </>
+            ) : (
+              <>
+                <span className="text-4xl">💬</span>
+                <p className="text-sm text-center">마이크 버튼을 누르거나 텍스트를 입력해서 대화를 시작하세요</p>
+              </>
+            )}
           </div>
         )}
 
