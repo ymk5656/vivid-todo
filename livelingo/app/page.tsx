@@ -4,11 +4,18 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-const DIALECTS = [
+type Lang = "es" | "ja";
+
+const DIALECTS_ES = [
   { code: "es-MX", flag: "🇲🇽", name: "멕시코", sub: "라틴아메리카 표준" },
   { code: "es-CO", flag: "🇨🇴", name: "콜롬비아", sub: "명확한 발음" },
   { code: "es-ES", flag: "🇪🇸", name: "스페인", sub: "카스티야 발음" },
   { code: "es-AR", flag: "🇦🇷", name: "아르헨티나", sub: "voseo 사용" },
+];
+
+const DIALECTS_JA = [
+  { code: "ja-JP", flag: "🇯🇵", name: "표준 일본어", sub: "도쿄·공통어" },
+  { code: "ja-KS", flag: "🏯", name: "간사이 방언", sub: "오사카·교토" },
 ];
 
 const LEVELS = [
@@ -57,6 +64,7 @@ function primeAudio() {
 
 export default function Home() {
   const router = useRouter();
+  const [lang, setLang] = useState<Lang>("es");
   const [gender, setGender] = useState<"female" | "male">("female");
   const [level, setLevel] = useState<Level>("beginner");
   const [savedSummary, setSavedSummary] = useState<SummaryData | null>(null);
@@ -74,12 +82,35 @@ export default function Home() {
 
   const talkHref = savedSettings
     ? `/talk?dialect=${savedSettings.dialect}&gender=${savedSettings.gender}&level=${savedSettings.level}`
-    : `/talk?dialect=es-MX&gender=${gender}&level=${level}`;
+    : `/talk?dialect=${lang === "ja" ? "ja-JP" : "es-MX"}&gender=${gender}&level=${level}`;
+
+  const dialects = lang === "ja" ? DIALECTS_JA : DIALECTS_ES;
+  const subtitle = lang === "ja" ? "일본어 대화 연습" : "스페인어 대화 연습";
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen px-4 pb-28">
       <h1 className="text-3xl font-bold mb-1 tracking-tight">LiveLingo</h1>
-      <p className="text-gray-500 mb-8 text-sm">스페인어 대화 연습</p>
+      <p className="text-gray-500 mb-6 text-sm">{subtitle}</p>
+
+      {/* Language tabs */}
+      <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1">
+        {([
+          { id: "es" as Lang, label: "🇪🇸 스페인어" },
+          { id: "ja" as Lang, label: "🇯🇵 일본어" },
+        ] as const).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setLang(tab.id)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              lang === tab.id
+                ? "bg-indigo-600 text-white"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {/* Controls row */}
       <div className="flex items-center gap-3 mb-6 flex-wrap justify-center">
@@ -118,7 +149,7 @@ export default function Home() {
 
       {/* Dialect list */}
       <div className="w-full max-w-xs flex flex-col gap-1.5">
-        {DIALECTS.map((d) => (
+        {dialects.map((d) => (
           <Link
             key={d.code}
             href={`/talk?dialect=${d.code}&gender=${gender}&level=${level}`}

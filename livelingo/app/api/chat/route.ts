@@ -3,7 +3,11 @@ import Groq from "groq-sdk";
 
 const getGroq = (apiKey: string) => new Groq({ apiKey });
 
-const FORMAT_INSTRUCTION = `
+function isJapanese(dialect: string) { return dialect.startsWith("ja-"); }
+
+// ── Spanish prompts ──────────────────────────────────────────────────────────
+
+const FORMAT_INSTRUCTION_ES = `
 
 반드시 아래 형식으로만 답변할 것:
 [스페인어 답변]
@@ -12,21 +16,21 @@ const FORMAT_INSTRUCTION = `
 ---CORRECCIÓN---
 [한국어 교정 — 오류가 있으면 한국어로만, 없으면 반드시 "없음"만 쓸 것]`;
 
-const BASE_PROMPTS: Record<string, string> = {
+const BASE_PROMPTS_ES: Record<string, string> = {
   "es-MX": "Eres un tutor de conversación en español mexicano. Habla de forma natural y amigable usando vocabulario y expresiones típicas de México.",
   "es-CO": "Eres un tutor de conversación en español colombiano. Habla de forma clara y amigable usando expresiones típicas de Colombia.",
   "es-ES": "Eres un tutor de conversación en español de España (castellano). Usa el tuteo y el vosotros cuando corresponda, así como expresiones típicas de España.",
   "es-AR": "Eres un tutor de conversación en español argentino. Usa el voseo (vos, tenés, hablás), lunfardo ocasional y expresiones típicas de Argentina.",
 };
 
-const PROACTIVE_INSTRUCTION = " Tú eres el líder de la conversación: siempre termina tu respuesta con una pregunta natural o una propuesta de tema para que el estudiante tenga algo concreto a lo que responder. Nunca dejes la conversación sin dirección.";
+const PROACTIVE_INSTRUCTION_ES = " Tú eres el líder de la conversación: siempre termina tu respuesta con una pregunta natural o una propuesta de tema para que el estudiante tenga algo concreto a lo que responder. Nunca dejes la conversación sin dirección.";
 
-const GENDER_ADDON: Record<string, string> = {
+const GENDER_ADDON_ES: Record<string, string> = {
   male: " Habla con un estilo masculino, directo y relajado.",
   female: " Habla con un estilo femenino, cálido y expresivo.",
 };
 
-const LEVEL_INSTRUCTIONS: Record<string, string> = {
+const LEVEL_INSTRUCTIONS_ES: Record<string, string> = {
   beginner: `
 Nivel: PRINCIPIANTE.
 - Responde con frases muy cortas y sencillas (1-2 oraciones máximo).
@@ -46,11 +50,63 @@ Nivel: AVANZADO.
 - REGLA OBLIGATORIA: Si el mensaje del usuario tiene 3 palabras o menos, SIEMPRE empieza con: "¿Quisiste decir: «[versión avanzada y elaborada]»?" — rellena los corchetes con la expresión real.`,
 };
 
+// ── Japanese prompts ─────────────────────────────────────────────────────────
+
+const FORMAT_INSTRUCTION_JA = `
+
+반드시 아래 형식으로만 답변할 것:
+[일본어 답변]
+---TRADUCCIÓN---
+[한국어 번역 — 오직 한글(가나다), 숫자, 공백, 문장부호만 허용. 스페인어·중국어·베트남어 등 다른 언어 문자 절대 금지]
+---CORRECCIÓN---
+[한국어 교정 — 오류가 있으면 한국어로만, 없으면 반드시 "없음"만 쓸 것]`;
+
+const BASE_PROMPTS_JA: Record<string, string> = {
+  "ja-JP": "あなたは日本語会話チューターです。自然で親しみやすい標準語（東京・共通語）で話し、日本の日常的な語彙と表現を使ってください。",
+  "ja-KS": "あなたは日本語会話チューターです。関西弁（大阪・京都の方言）で話し、「やん」「やで」「なんでやねん」などの関西弁特有の表現を自然に使ってください。",
+};
+
+const PROACTIVE_INSTRUCTION_JA = " あなたが会話をリードしてください。常に返答の最後に自然な質問や話題提案を付けて、学習者が答えやすいようにしてください。";
+
+const GENDER_ADDON_JA: Record<string, string> = {
+  male: " 男性らしく、自然で落ち着いたスタイルで話してください。",
+  female: " 女性らしく、温かく親しみやすいスタイルで話してください。",
+};
+
+const LEVEL_INSTRUCTIONS_JA: Record<string, string> = {
+  beginner: `
+レベル：初級。
+- とても短く簡単な文（1〜2文）で答えてください。
+- ひらがな・カタカナを中心に、基本的な漢字のみ使用してください。
+- 必要に応じてひらがなのふりがなを付けてください。
+- OBLIGATORY RULE: ユーザーのメッセージが3語以下（例：「はい」「好き」「わからない」）なら、必ず最初に「もしかして：「[ここに自然な日本語の完全な文を入れてください]」と言いたかったですか？」と書いてから通常の返答を続けてください。`,
+
+  intermediate: `
+レベル：中級。
+- 2〜3文で答えてください。
+- 多様な語彙を使い、一般的な漢字も使用してください。
+- OBLIGATORY RULE: ユーザーのメッセージが3語以下なら、必ず最初に「もしかして：「[完全な文の提案]」と言いたかったですか？」と書いてください。`,
+
+  advanced: `
+レベル：上級。
+- 3〜5文でイディオムや自然な表現を使って答えてください。
+- 高度な語彙と文法を使ってください。
+- OBLIGATORY RULE: ユーザーのメッセージが3語以下なら、必ず最初に「もしかして：「[上級的な表現の提案]」と言いたかったですか？」と書いてください。`,
+};
+
+// ── System prompt builder ────────────────────────────────────────────────────
+
 function buildSystemPrompt(dialect: string, gender: string, level: string): string {
-  const base = BASE_PROMPTS[dialect] ?? BASE_PROMPTS["es-MX"];
-  const genderAddon = GENDER_ADDON[gender] ?? "";
-  const levelInstruction = LEVEL_INSTRUCTIONS[level] ?? LEVEL_INSTRUCTIONS["beginner"];
-  return base + genderAddon + PROACTIVE_INSTRUCTION + levelInstruction + FORMAT_INSTRUCTION;
+  if (isJapanese(dialect)) {
+    const base = BASE_PROMPTS_JA[dialect] ?? BASE_PROMPTS_JA["ja-JP"];
+    const genderAddon = GENDER_ADDON_JA[gender] ?? "";
+    const levelInstruction = LEVEL_INSTRUCTIONS_JA[level] ?? LEVEL_INSTRUCTIONS_JA["beginner"];
+    return base + genderAddon + PROACTIVE_INSTRUCTION_JA + levelInstruction + FORMAT_INSTRUCTION_JA;
+  }
+  const base = BASE_PROMPTS_ES[dialect] ?? BASE_PROMPTS_ES["es-MX"];
+  const genderAddon = GENDER_ADDON_ES[gender] ?? "";
+  const levelInstruction = LEVEL_INSTRUCTIONS_ES[level] ?? LEVEL_INSTRUCTIONS_ES["beginner"];
+  return base + genderAddon + PROACTIVE_INSTRUCTION_ES + levelInstruction + FORMAT_INSTRUCTION_ES;
 }
 
 interface HistoryItem {
@@ -94,15 +150,27 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = buildSystemPrompt(dialect, gender, level);
 
-    const FORMAT_REMINDER = "\n\n[반드시 형식: 스페인어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]";
+    const FORMAT_REMINDER = isJapanese(dialect)
+      ? "\n\n[반드시 형식: 일본어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]"
+      : "\n\n[반드시 형식: 스페인어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]";
 
     let userContent: string;
-    if (trigger === "greet") {
-      userContent = "[INICIO] El estudiante acaba de abrir la app. Salúdalo calurosamente, preséntate brevemente y pregúntale qué tema le gustaría practicar hoy.";
-    } else if (trigger === "followup") {
-      userContent = "[SILENCIO] El estudiante lleva un rato sin responder. Retoma la conversación de forma natural: haz una pregunta sobre lo que se habló, propone un tema nuevo o invítalo a seguir practicando.";
+    if (isJapanese(dialect)) {
+      if (trigger === "greet") {
+        userContent = "[開始] 学習者がアプリを開きました。日本語で温かく挨拶し、簡単に自己紹介して、今日どんなトピックを練習したいか聞いてください。";
+      } else if (trigger === "followup") {
+        userContent = "[沈黙] 学習者がしばらく返答していません。自然に会話を続けてください。";
+      } else {
+        userContent = message ?? "";
+      }
     } else {
-      userContent = message ?? "";
+      if (trigger === "greet") {
+        userContent = "[INICIO] El estudiante acaba de abrir la app. Salúdalo calurosamente, preséntate brevemente y pregúntale qué tema le gustaría practicar hoy.";
+      } else if (trigger === "followup") {
+        userContent = "[SILENCIO] El estudiante lleva un rato sin responder. Retoma la conversación de forma natural: haz una pregunta sobre lo que se habló, propone un tema nuevo o invítalo a seguir practicando.";
+      } else {
+        userContent = message ?? "";
+      }
     }
 
     const chatMessages = [
@@ -138,7 +206,6 @@ export async function POST(req: NextRequest) {
         const status = (err as { status?: number })?.status;
         const errMsg = (err as Error)?.message;
         console.error(`[key-rotation] key ...${key.slice(-8)} error: status=${status} msg=${errMsg}`);
-        // retry next key on rate limit OR connection errors
         continue;
       }
     }
