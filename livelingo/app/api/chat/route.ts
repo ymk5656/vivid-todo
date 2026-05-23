@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
-const getGroq = () => new Groq({ apiKey: process.env.GROQ_API_KEY });
+const getGroq = (apiKey: string) => new Groq({ apiKey });
 
 const FORMAT_INSTRUCTION = `
 
@@ -105,19 +105,48 @@ export async function POST(req: NextRequest) {
       userContent = message ?? "";
     }
 
-    const completion = await getGroq().chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...history.slice(-10).map((h) => ({
-          role: h.role as "user" | "assistant",
-          content: h.content,
-        })),
-        { role: "user", content: userContent + FORMAT_REMINDER },
-      ],
-      temperature: 0.7,
-      max_tokens: 512,
-    });
+    const chatMessages = [
+      { role: "system" as const, content: systemPrompt },
+      ...history.slice(-10).map((h) => ({
+        role: h.role as "user" | "assistant",
+        content: h.content,
+      })),
+      { role: "user" as const, content: userContent + FORMAT_REMINDER },
+    ];
+
+    const keys = [
+      process.env.GROQ_API_KEY_2,
+      process.env.GROQ_API_KEY,
+    ].map(k => k?.trim()).filter(Boolean) as string[];
+    console.log(`[key-rotation] keys available: ${keys.length}, lengths: ${keys.map(k => k.length).join(",")}`);
+
+
+    let completion: Awaited<ReturnType<ReturnType<typeof getGroq>["chat"]["completions"]["create"]>> | null = null;
+
+    for (const key of keys) {
+      try {
+        console.log(`[key-rotation] trying key ...${key.slice(-8)}`);
+        completion = await getGroq(key).chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: chatMessages,
+          temperature: 0.7,
+          max_tokens: 512,
+        });
+        console.log(`[key-rotation] success with key ...${key.slice(-8)}`);
+        break;
+      } catch (err) {
+        const status = (err as { status?: number })?.status;
+        const errMsg = (err as Error)?.message;
+        console.error(`[key-rotation] key ...${key.slice(-8)} error: status=${status} msg=${errMsg}`);
+        // retry next key on rate limit OR connection errors
+        continue;
+      }
+    }
+
+    if (!completion) {
+      console.error("[key-rotation] all keys rate limited");
+      return NextResponse.json({ error: "rate_limit" }, { status: 429 });
+    }
 
     const raw = completion.choices[0]?.message?.content ?? "";
     const parsed = parseResponse(raw);
@@ -125,9 +154,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("Chat API error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    const status = (err as { status?: number })?.status;
+    const msg = (err as Error)?.message ?? String(err);
+    const name = (err as Error)?.name ?? "unknown";
+    if (status === 429) {
+      return NextResponse.json({ error: "rate_limit" }, { status: 429 });
+    }
+    return NextResponse.json({ error: "Internal server error", _debug: msg, _status: status, _name: name }, { status: 500 });
   }
 }

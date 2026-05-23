@@ -145,8 +145,12 @@ export default function TalkClient() {
   const hasGreetedRef = useRef(false);
   const sendProactiveRef = useRef<(trigger: "greet" | "followup") => void>(() => {});
   const loadingRef = useRef(false);
+  const playTTSRef = useRef<(text: string, idx: number) => void>(() => {});
+  const summaryOpenRef = useRef(false);
+  const messagesLenRef = useRef(0);
+  const prevDictOpenRef = useRef(false);
 
-useEffect(() => {
+  useEffect(() => {
     const w = window as Window & { SpeechRecognition?: ISpeechRecognitionCtor; webkitSpeechRecognition?: ISpeechRecognitionCtor };
     if (!w.SpeechRecognition && !w.webkitSpeechRecognition) setSttSupported(false);
   }, []);
@@ -178,6 +182,43 @@ useEffect(() => {
   const clearTimers = useCallback(() => {
     timerIdsRef.current.forEach(clearTimeout);
     timerIdsRef.current = [];
+  }, []);
+
+  // Keep refs in sync for use inside effects with single deps
+  useEffect(() => { summaryOpenRef.current = summaryOpen; }, [summaryOpen]);
+  useEffect(() => { messagesLenRef.current = messages.length; }, [messages]);
+
+  // Pause inactivity timer when summary modal opens
+  useEffect(() => {
+    if (summaryOpen && inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+  }, [summaryOpen]);
+
+  // Pause timer when dict opens; resume when dict closes (if conversation active)
+  useEffect(() => {
+    if (dictOpen) {
+      prevDictOpenRef.current = true;
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+    } else if (prevDictOpenRef.current) {
+      prevDictOpenRef.current = false;
+      if (messagesLenRef.current > 0 && !loadingRef.current && !summaryOpenRef.current) {
+        inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 50000);
+      }
+    }
+  }, [dictOpen]);
+
+  const handleNewChat = useCallback(() => {
+    setMessages([]);
+    setInput("");
+    setSummaryOpen(false);
+    setSummaryData(null);
+    hasGreetedRef.current = false;
+    setTimeout(() => sendProactiveRef.current("greet"), 600);
   }, []);
 
   const handleWordClick = useCallback((word: string) => {
@@ -215,6 +256,7 @@ useEffect(() => {
       if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null; }
       loadingRef.current = true;
       setLoading(true);
+      let hadError = false;
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
@@ -232,21 +274,19 @@ useEffect(() => {
         const aiMsg: Message = { role: "assistant", spanish: data.spanish, korean: data.korean ?? "", correction: "없음" };
         const aiIdx = messages.length;
         setMessages((prev) => [...prev, aiMsg]);
-        void playTTS(aiMsg.spanish, aiIdx);
-      } catch {
-        setMessages((prev) => [...prev, {
-          role: "assistant",
-          spanish: "Lo siento, hubo un problema de conexión. Por favor, recarga la página.",
-          korean: "연결 오류가 발생했습니다. 페이지를 새로고침해주세요.",
-          correction: "없음",
-        }]);
+        void playTTSRef.current(aiMsg.spanish, aiIdx);
+      } catch (err) {
+        hadError = true;
+        console.error("[proactive] API error:", err);
       } finally {
         loadingRef.current = false;
         setLoading(false);
-        inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 10000);
+        if (!hadError) {
+          inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 50000);
+        }
       }
     },
-    [dialect, gender, level, messages, playTTS]
+    [dialect, gender, level, messages]
   );
 
   useEffect(() => { sendProactiveRef.current = sendProactiveMessage; }, [sendProactiveMessage]);
@@ -378,6 +418,7 @@ useEffect(() => {
     },
     [dialect, gender, clearTimers]
   );
+  useEffect(() => { playTTSRef.current = playTTS; }, [playTTS]);
 
   // ── Chat ───────────────────────────────────────────────────────────────────
   const sendMessage = useCallback(
@@ -390,6 +431,7 @@ useEffect(() => {
 
       setMessages((prev) => [...prev, { role: "user", spanish: text }]);
 
+      let hadError = false;
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
@@ -408,6 +450,9 @@ useEffect(() => {
           correction?: string;
           error?: string;
         };
+        if (res.status === 429) {
+          throw new Error("rate_limit");
+        }
         if (!res.ok || !data.spanish) {
           throw new Error(data.error ?? "API error");
         }
@@ -422,19 +467,27 @@ useEffect(() => {
         const aiIdx = messages.length + 1;
         setMessages((prev) => [...prev, aiMsg]);
         void playTTS(aiMsg.spanish, aiIdx);
-      } catch {
+      } catch (err) {
+        hadError = true;
+        const isRateLimit = (err as Error).message === "rate_limit";
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            spanish: "Lo siento, hubo un error. Por favor, intenta de nuevo.",
-            korean: "죄송합니다, 오류가 발생했습니다. 다시 시도해 주세요.",
+            spanish: isRateLimit
+              ? "Lo siento, el servicio está temporalmente saturado. Por favor, intenta en unos minutos."
+              : "Lo siento, hubo un error. Por favor, intenta de nuevo.",
+            korean: isRateLimit
+              ? "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."
+              : "죄송합니다, 오류가 발생했습니다. 다시 시도해 주세요.",
           },
         ]);
       } finally {
         loadingRef.current = false;
         setLoading(false);
-        inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 10000);
+        if (!hadError) {
+          inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 50000);
+        }
       }
     },
     [dialect, gender, level, messages, playTTS]
@@ -608,12 +661,7 @@ useEffect(() => {
             }
             router.push("/");
           }}
-          onNewChat={() => {
-            setMessages([]);
-            setInput("");
-            setSummaryOpen(false);
-            setSummaryData(null);
-          }}
+          onNewChat={handleNewChat}
         />
       )}
 
