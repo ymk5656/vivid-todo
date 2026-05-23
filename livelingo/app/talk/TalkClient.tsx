@@ -147,6 +147,7 @@ export default function TalkClient() {
   const loadingRef = useRef(false);
   const playTTSRef = useRef<(text: string, idx: number) => void>(() => {});
   const summaryOpenRef = useRef(false);
+  const dictOpenRef = useRef(false);
   const messagesLenRef = useRef(0);
   const prevDictOpenRef = useRef(false);
 
@@ -186,6 +187,7 @@ export default function TalkClient() {
 
   // Keep refs in sync for use inside effects with single deps
   useEffect(() => { summaryOpenRef.current = summaryOpen; }, [summaryOpen]);
+  useEffect(() => { dictOpenRef.current = dictOpen; }, [dictOpen]);
   useEffect(() => { messagesLenRef.current = messages.length; }, [messages]);
 
   // Pause inactivity timer when summary modal opens
@@ -253,6 +255,8 @@ export default function TalkClient() {
   const sendProactiveMessage = useCallback(
     async (trigger: "greet" | "followup") => {
       if (loadingRef.current) return;
+      if (dictOpenRef.current) return;
+      if (summaryOpenRef.current) return;
       if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null; }
       loadingRef.current = true;
       setLoading(true);
@@ -281,7 +285,7 @@ export default function TalkClient() {
       } finally {
         loadingRef.current = false;
         setLoading(false);
-        if (!hadError) {
+        if (!hadError && !dictOpenRef.current && !summaryOpenRef.current) {
           inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 50000);
         }
       }
@@ -485,7 +489,7 @@ export default function TalkClient() {
       } finally {
         loadingRef.current = false;
         setLoading(false);
-        if (!hadError) {
+        if (!hadError && !dictOpenRef.current && !summaryOpenRef.current) {
           inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 50000);
         }
       }
