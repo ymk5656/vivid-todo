@@ -681,6 +681,8 @@ export default function TalkClient() {
             router.push("/");
           }}
           onNewChat={handleNewChat}
+          onPlayTTS={(text, idx) => { void playTTSRef.current(text, idx); }}
+          ttsLoading={ttsLoading}
         />
       )}
 
@@ -743,12 +745,16 @@ function SummaryModal({
   onClose,
   onExit,
   onNewChat,
+  onPlayTTS,
+  ttsLoading,
 }: {
   data: SummaryData | null;
   loading: boolean;
   onClose: () => void;
   onExit: () => void;
   onNewChat: () => void;
+  onPlayTTS: (text: string, idx: number) => void;
+  ttsLoading: number | null;
 }) {
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -802,6 +808,14 @@ function SummaryModal({
                           <p className="text-xs text-gray-500 mt-0.5 italic">{w.example}</p>
                         )}
                       </div>
+                      <button
+                        onClick={() => onPlayTTS(w.word, -(i + 1))}
+                        disabled={ttsLoading === -(i + 1)}
+                        className="text-gray-500 hover:text-white flex-shrink-0 transition-colors disabled:opacity-50 mt-0.5"
+                        title="발음 듣기"
+                      >
+                        {ttsLoading === -(i + 1) ? "⏳" : "🔊"}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -823,6 +837,14 @@ function SummaryModal({
                           <p className="text-xs text-gray-500 mt-1 leading-relaxed">{e.usage}</p>
                         )}
                       </div>
+                      <button
+                        onClick={() => onPlayTTS(e.expression, -(100 + i + 1))}
+                        disabled={ttsLoading === -(100 + i + 1)}
+                        className="text-gray-500 hover:text-white flex-shrink-0 transition-colors disabled:opacity-50 mt-0.5"
+                        title="발음 듣기"
+                      >
+                        {ttsLoading === -(100 + i + 1) ? "⏳" : "🔊"}
+                      </button>
                     </div>
                   ))}
                 </div>
