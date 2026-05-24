@@ -188,6 +188,18 @@ const LEVEL_INSTRUCTIONS_ZH: Record<string, string> = {
 - 重要规则：如果用户消息只有3个词或更少，请务必先写："你是想说：「[高级、完整的表达]」吗？"`,
 };
 
+// ── Core Sophistication Guidelines ─────────────────────────────────────────────
+
+const SOPHISTICATION_INSTRUCTION = `
+[CORE COMMUNICATION GUIDELINES - MANDATORY]
+You must craft every response embodying the highest level of sophistication and intellect, adhering to the following 4 pillars:
+1. Sophistication: Use precise, nuanced vocabulary rather than basic words (e.g., use 'reservations' instead of 'problems'). Express thoughts with subtlety and elegance.
+2. Articulateness & Content: Employ appropriate literary metaphors, idioms, and sensory language to make the dialogue multi-dimensional and intellectually engaging, without sounding unnatural.
+3. Politeness & Diplomacy: Exhibit assertive yet exceptionally polite diplomacy. When addressing misunderstandings or disagreeing, never blame the user (e.g., instead of "You didn't understand", say "Perhaps I didn't make myself clear").
+4. Contextual Flexibility: Adjust your tone to fit the context (TPO). Blend formal and informal elements seamlessly depending on the user's input, maintaining a refined yet accessible demeanor.
+Ultimately, demonstrate intellectual depth through concise, polished vocabulary, profound respect, and smooth contextual control.
+`;
+
 // ── System prompt builder ────────────────────────────────────────────────────
 
 function buildSystemPrompt(dialect: string, gender: string, level: string): string {
@@ -197,25 +209,25 @@ function buildSystemPrompt(dialect: string, gender: string, level: string): stri
     const base = BASE_PROMPTS_JA[dialect] ?? BASE_PROMPTS_JA["ja-JP"];
     const genderAddon = GENDER_ADDON_JA[gender] ?? "";
     const levelInstruction = LEVEL_INSTRUCTIONS_JA[level] ?? LEVEL_INSTRUCTIONS_JA["beginner"];
-    return base + genderAddon + PROACTIVE_INSTRUCTION_JA + levelInstruction + FORMAT_INSTRUCTION_JA;
+    return base + genderAddon + PROACTIVE_INSTRUCTION_JA + levelInstruction + SOPHISTICATION_INSTRUCTION + FORMAT_INSTRUCTION_JA;
   }
   if (lang === "en") {
     const base = BASE_PROMPTS_EN[dialect] ?? BASE_PROMPTS_EN["en-US"];
     const genderAddon = GENDER_ADDON_EN[gender] ?? "";
     const levelInstruction = LEVEL_INSTRUCTIONS_EN[level] ?? LEVEL_INSTRUCTIONS_EN["beginner"];
-    return base + genderAddon + PROACTIVE_INSTRUCTION_EN + levelInstruction + FORMAT_INSTRUCTION_EN;
+    return base + genderAddon + PROACTIVE_INSTRUCTION_EN + levelInstruction + SOPHISTICATION_INSTRUCTION + FORMAT_INSTRUCTION_EN;
   }
   if (lang === "zh") {
     const base = BASE_PROMPTS_ZH[dialect] ?? BASE_PROMPTS_ZH["zh-CN"];
     const genderAddon = GENDER_ADDON_ZH[gender] ?? "";
     const levelInstruction = LEVEL_INSTRUCTIONS_ZH[level] ?? LEVEL_INSTRUCTIONS_ZH["beginner"];
-    return base + genderAddon + PROACTIVE_INSTRUCTION_ZH + levelInstruction + FORMAT_INSTRUCTION_ZH;
+    return base + genderAddon + PROACTIVE_INSTRUCTION_ZH + levelInstruction + SOPHISTICATION_INSTRUCTION + FORMAT_INSTRUCTION_ZH;
   }
   // Spanish (default)
   const base = BASE_PROMPTS_ES[dialect] ?? BASE_PROMPTS_ES["es-MX"];
   const genderAddon = GENDER_ADDON_ES[gender] ?? "";
   const levelInstruction = LEVEL_INSTRUCTIONS_ES[level] ?? LEVEL_INSTRUCTIONS_ES["beginner"];
-  return base + genderAddon + PROACTIVE_INSTRUCTION_ES + levelInstruction + FORMAT_INSTRUCTION_ES;
+  return base + genderAddon + PROACTIVE_INSTRUCTION_ES + levelInstruction + SOPHISTICATION_INSTRUCTION + FORMAT_INSTRUCTION_ES;
 }
 
 interface HistoryItem {
