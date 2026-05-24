@@ -47,10 +47,11 @@ const DEFAULT_VOICE = VOICES["en-US"];
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, gender = "female", dialect = "en-US" } = (await req.json()) as {
+    const { text, gender = "female", dialect = "en-US", level = "beginner" } = (await req.json()) as {
       text: string;
       gender?: string;
       dialect?: string;
+      level?: string;
     };
 
     if (!text?.trim()) {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
           voice,
           audioConfig: {
             audioEncoding: "MP3",
-            speakingRate: 0.9,
+            speakingRate: level === "advanced" ? 1.2 : 0.9,
             pitch: gender === "female" ? 1.0 : -2.0,
           },
         }),

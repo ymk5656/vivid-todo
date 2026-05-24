@@ -52,7 +52,7 @@ Nivel: INTERMEDIO.
 
   advanced: `
 Nivel: AVANZADO.
-- Responde con 3-5 oraciones usando expresiones naturales, modismos y gramática compleja.
+- Responde con 2-3 oraciones usando expresiones naturales, modismos y gramática compleja.
 - Amplía el vocabulario con sinónimos y giros idiomáticos.
 - REGLA OBLIGATORIA: Si el mensaje del usuario tiene 3 palabras o menos, SIEMPRE empieza con: "¿Quisiste decir: «[versión avanzada y elaborada]»?" — rellena los corchetes con la expresión real.`,
 };
@@ -96,7 +96,7 @@ const LEVEL_INSTRUCTIONS_JA: Record<string, string> = {
 
   advanced: `
 レベル：上級。
-- 3〜5文でイディオムや自然な表現を使って答えてください。
+- 2〜3文でイディオムや自然な表現を使って答えてください。
 - 高度な語彙と文法を使ってください。
 - OBLIGATORY RULE: ユーザーのメッセージが3語以下なら、必ず最初に「もしかして：「[上級的な表現の提案]」と言いたかったですか？」と書いてください。`,
 };
@@ -140,7 +140,7 @@ Level: INTERMEDIATE.
 
   advanced: `
 Level: ADVANCED.
-- Respond with 3-5 sentences using natural expressions, idioms, and complex grammar.
+- Respond with 2-3 sentences using natural expressions, idioms, and complex grammar.
 - Expand vocabulary with synonyms and idiomatic phrases.
 - OBLIGATORY RULE: If the user's message is 3 words or fewer, ALWAYS start with: "Did you mean: «[advanced, elaborate version]»?" — fill in the brackets with the actual expression.`,
 };
@@ -183,7 +183,7 @@ const LEVEL_INSTRUCTIONS_ZH: Record<string, string> = {
 
   advanced: `
 级别：高级。
-- 用3-5句话回答，使用自然表达、成语和复杂语法。
+- 用2-3句话回答，使用自然表达、成语和复杂语法。
 - 丰富词汇，使用同义词和惯用语。
 - 重要规则：如果用户消息只有3个词或更少，请务必先写："你是想说：「[高级、完整的表达]」吗？"`,
 };

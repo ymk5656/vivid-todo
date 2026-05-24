@@ -339,7 +339,7 @@ export default function TalkClient() {
         const res = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, gender, dialect }),
+          body: JSON.stringify({ text, gender, dialect, level }),
         });
 
         if (res.ok) {
@@ -442,7 +442,7 @@ export default function TalkClient() {
 
       window.speechSynthesis.speak(utt);
     },
-    [dialect, gender, clearTimers]
+    [dialect, gender, level, clearTimers]
   );
   useEffect(() => { playTTSRef.current = playTTS; }, [playTTS]);
 
