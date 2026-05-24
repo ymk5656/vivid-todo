@@ -225,12 +225,19 @@ export default function TalkClient() {
   }, []);
 
   useEffect(() => {
+    const scrollEl = scrollContainerRef.current;
+    if (!scrollEl) return;
+
     if (messages.length === 1) {
-      // 첫 메시지일 경우 컨테이너의 맨 위부터 읽을 수 있도록 스크롤 맨 위로 이동
-      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      // DOM 렌더링이 완료된 후 확실하게 맨 위로 즉시 이동
+      setTimeout(() => {
+        scrollEl.scrollTo({ top: 0, behavior: "auto" });
+      }, 50);
     } else if (messages.length > 1 || loading) {
       // 대화가 진행 중일 때는 자연스럽게 맨 아래로 스크롤
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      }, 50);
     }
   }, [messages, loading]);
 
@@ -612,7 +619,7 @@ export default function TalkClient() {
 
   return (
     <div className="flex flex-col h-[100dvh] max-w-2xl mx-auto bg-gradient-to-b from-gray-950 to-indigo-950/20 text-gray-100">
-      <header className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 glass-panel-light !bg-gray-950/80 border-b border-white/5">
+      <header className="flex-shrink-0 z-10 flex items-center justify-between px-4 py-3 glass-panel-light !bg-gray-950/80 border-b border-white/5">
         <Link href="/" className="text-gray-400 hover:text-white text-sm font-semibold transition-colors">
           ← 뒤로
         </Link>
