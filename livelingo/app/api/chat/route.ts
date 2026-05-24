@@ -239,7 +239,21 @@ function parseResponse(raw: string): {
   }
   const spanish = parts[0].trim();
   const rest = parts[1].split(/---CORRECCIÓN---/);
-  const korean = enforceKorean(rest[0].trim());
+  let koreanRaw = rest[0].trim();
+
+  // The LLM sometimes echoes the foreign-language reply before the Korean translation,
+  // and/or inserts a "---한국어 번역---" sub-header. Extract only what follows it.
+  const subHeaderMatch = koreanRaw.match(/---[^\n]*번역[^\n]*---\s*([\s\S]+)/);
+  if (subHeaderMatch) {
+    koreanRaw = subHeaderMatch[1].trim();
+  } else {
+    // No sub-header — strip leading lines that contain no Korean characters
+    const lines = koreanRaw.split('\n');
+    const firstKoreanIdx = lines.findIndex(l => /[가-힣]/.test(l));
+    if (firstKoreanIdx > 0) koreanRaw = lines.slice(firstKoreanIdx).join('\n').trim();
+  }
+
+  const korean = enforceKorean(koreanRaw);
   const rawCorrection = rest[1]?.trim() ?? "없음";
   const correction = rawCorrection === "없음" ? "없음" : enforceKorean(rawCorrection) || "없음";
   return { spanish, korean, correction };
