@@ -188,6 +188,7 @@ export default function TalkClient() {
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const transcriptRef = useRef("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const timerIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -224,7 +225,13 @@ export default function TalkClient() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 1) {
+      // 첫 메시지일 경우 컨테이너의 맨 위부터 읽을 수 있도록 스크롤 맨 위로 이동
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (messages.length > 1 || loading) {
+      // 대화가 진행 중일 때는 자연스럽게 맨 아래로 스크롤
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, loading]);
 
   const clearTimers = useCallback(() => {
@@ -631,7 +638,7 @@ export default function TalkClient() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-4">
             {loading ? (
