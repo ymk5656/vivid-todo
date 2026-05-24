@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
           voice,
           audioConfig: {
             audioEncoding: "MP3",
-            speakingRate: level === "advanced" ? 1.3 : level === "intermediate" ? 1.15 : 0.9,
+            speakingRate: level === "advanced" ? 1.3 : level === "intermediate" ? 1.15 : 1.0,
             pitch: gender === "female" ? 1.0 : -2.0,
           },
         }),
