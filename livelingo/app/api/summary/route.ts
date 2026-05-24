@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
-const getGroq = () => new Groq({ apiKey: process.env.GROQ_API_KEY });
+const getGroq = (apiKey: string) => new Groq({ apiKey });
 
 interface HistoryItem {
   role: "user" | "assistant";
@@ -45,7 +45,8 @@ ${conversationText}
 {
   "words": [
     {
-      "word": "일본어 단어",
+      "word": "일본어 단어 (한자가 있으면 한자 포함)",
+      "reading": "히라가나 읽기 — 예: 経済 → けいざい, 食べる → たべる. 히라가나·가타카나만으로 된 단어는 빈 문자열",
       "pos": "품사 한국어(명사/동사/형용사/부사/기타)",
       "translation": "한국어 뜻",
       "example": "짧은 예문(일본어)"
@@ -87,24 +88,42 @@ ${conversationText}
 
 words는 정확히 10개, expressions는 정확히 5개. 대화에 실제로 등장한 단어/표현 위주로 선택하되, 부족하면 관련 어휘를 추가하세요.`;
 
-    const completion = await getGroq().chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content:
-            `You are a ${langNote} language learning assistant. ` +
-            "Analyze the conversation and extract key vocabulary and expressions. " +
-            "Respond with valid JSON only, no extra text.",
-        },
-        { role: "user", content: userContent },
-      ],
-      temperature: 0.3,
-      max_tokens: 1400,
-      response_format: { type: "json_object" },
-    });
+    const keys = [
+      process.env.GROQ_API_KEY_2,
+      process.env.GROQ_API_KEY,
+    ].map(k => k?.trim()).filter(Boolean) as string[];
 
-    const raw = completion.choices[0]?.message?.content ?? "{}";
+    let raw = "{}";
+    let lastErr: unknown = null;
+    for (const key of keys) {
+      try {
+        const completion = await getGroq(key).chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content:
+                `You are a ${langNote} language learning assistant. ` +
+                "Analyze the conversation and extract key vocabulary and expressions. " +
+                "Respond with valid JSON only, no extra text.",
+            },
+            { role: "user", content: userContent },
+          ],
+          temperature: 0.3,
+          max_tokens: 1400,
+          response_format: { type: "json_object" },
+        });
+        raw = completion.choices[0]?.message?.content ?? "{}";
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+        console.error("[Summary] key error:", (err as Error)?.message);
+        continue;
+      }
+    }
+    if (lastErr) throw lastErr;
+
     const result = JSON.parse(raw) as {
       words?: unknown[];
       expressions?: unknown[];

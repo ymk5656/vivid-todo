@@ -32,8 +32,18 @@ const LEVEL_ACTIVE: Record<string, string> = {
   violet:  "border-violet-500 bg-violet-500/10 text-violet-300",
 };
 
+const DIALECT_LABEL: Record<string, string> = {
+  "es-MX": "🇲🇽 멕시코",
+  "es-CO": "🇨🇴 콜롬비아",
+  "es-ES": "🇪🇸 스페인",
+  "es-AR": "🇦🇷 아르헨티나",
+  "ja-JP": "🇯🇵 표준 일본어",
+  "ja-KS": "🏯 간사이 방언",
+};
+
 interface SummaryWord {
   word: string;
+  reading?: string;   // hiragana furigana — Japanese sessions only
   pos: string;
   translation: string;
   example?: string;
@@ -52,6 +62,32 @@ interface SavedSettings {
   gender: string;
   level: string;
 }
+interface SavedSummaryEntry {
+  date: string;       // ISO string
+  dialect: string;
+  gender: string;
+  level: string;
+  words: SummaryWord[];
+  expressions: SummaryExpression[];
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const sameDay = (a: Date, b: Date) =>
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate();
+    if (sameDay(d, today)) return "오늘";
+    if (sameDay(d, yesterday)) return "어제";
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  } catch {
+    return "";
+  }
+}
 
 function primeAudio() {
   if (typeof window === "undefined") return;
@@ -67,21 +103,45 @@ export default function Home() {
   const [lang, setLang] = useState<Lang>("es");
   const [gender, setGender] = useState<"female" | "male">("female");
   const [level, setLevel] = useState<Level>("beginner");
-  const [savedSummary, setSavedSummary] = useState<SummaryData | null>(null);
-  const [savedSettings, setSavedSettings] = useState<SavedSettings | null>(null);
+  const [savedSummaries, setSavedSummaries] = useState<SavedSummaryEntry[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("livelingo_last_summary");
-      const rawSettings = localStorage.getItem("livelingo_last_settings");
-      if (raw) setSavedSummary(JSON.parse(raw));
-      if (rawSettings) setSavedSettings(JSON.parse(rawSettings));
+      // Primary: new array store
+      const raw = localStorage.getItem("livelingo_summaries");
+      if (raw) {
+        const arr = JSON.parse(raw) as SavedSummaryEntry[];
+        if (Array.isArray(arr) && arr.length > 0) {
+          setSavedSummaries(arr);
+          return;
+        }
+      }
+      // Legacy fallback: single summary + settings
+      const legacyData = localStorage.getItem("livelingo_last_summary");
+      const legacySettings = localStorage.getItem("livelingo_last_settings");
+      if (legacyData) {
+        const data = JSON.parse(legacyData) as SummaryData;
+        const settings = legacySettings
+          ? (JSON.parse(legacySettings) as SavedSettings)
+          : { dialect: "es-MX", gender: "female", level: "beginner" };
+        setSavedSummaries([
+          {
+            date: new Date().toISOString(),
+            dialect: settings.dialect,
+            gender: settings.gender,
+            level: settings.level,
+            words: data.words ?? [],
+            expressions: data.expressions ?? [],
+          },
+        ]);
+      }
     } catch {}
   }, []);
 
-  const talkHref = savedSettings
-    ? `/talk?dialect=${savedSettings.dialect}&gender=${savedSettings.gender}&level=${savedSettings.level}`
+  const latest = savedSummaries[0];
+  const talkHref = latest
+    ? `/talk?dialect=${latest.dialect}&gender=${latest.gender}&level=${latest.level}`
     : `/talk?dialect=${lang === "ja" ? "ja-JP" : "es-MX"}&gender=${gender}&level=${level}`;
 
   const dialects = lang === "ja" ? DIALECTS_JA : DIALECTS_ES;
@@ -163,8 +223,8 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Bottom bar — shown only when saved summary exists */}
-      {savedSummary && (
+      {/* Bottom bar — shown only when saved summaries exist */}
+      {savedSummaries.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 flex justify-center px-4 py-4 bg-gray-950/95 backdrop-blur-sm border-t border-gray-800">
           <div className="flex gap-2 w-full max-w-xs">
             <button
@@ -184,9 +244,9 @@ export default function Home() {
       )}
 
       {/* Review modal */}
-      {reviewOpen && savedSummary && (
+      {reviewOpen && (
         <ReviewModal
-          data={savedSummary}
+          entries={savedSummaries}
           onClose={() => setReviewOpen(false)}
         />
       )}
@@ -195,15 +255,22 @@ export default function Home() {
 }
 
 function ReviewModal({
-  data,
+  entries,
   onClose,
 }: {
-  data: SummaryData;
+  entries: SavedSummaryEntry[];
   onClose: () => void;
 }) {
+  const [tab, setTab] = useState(0);
+  const entry = entries[tab];
+  if (!entry) return null;
+
+  const isJa = entry.dialect.startsWith("ja-");
+
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="bg-gray-900 border border-gray-700 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] flex flex-col">
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700 flex-shrink-0">
           <span className="font-bold text-base">📚 지난 학습 정리</span>
           <button
@@ -214,21 +281,60 @@ function ReviewModal({
           </button>
         </div>
 
+        {/* Session tabs — only shown when more than 1 entry */}
+        {entries.length > 1 && (
+          <div className="flex gap-1 px-4 pt-3 pb-0 flex-shrink-0 overflow-x-auto">
+            {entries.map((e, i) => (
+              <button
+                key={i}
+                onClick={() => setTab(i)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-t-lg text-xs font-medium transition-all border-b-2 ${
+                  tab === i
+                    ? "border-indigo-500 text-white bg-gray-800"
+                    : "border-transparent text-gray-500 hover:text-gray-300 bg-transparent"
+                }`}
+              >
+                <span className="block text-[10px] text-gray-500 leading-none mb-0.5">
+                  {formatDate(e.date)}
+                </span>
+                <span>{DIALECT_LABEL[e.dialect] ?? e.dialect}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Single-entry label */}
+        {entries.length === 1 && (
+          <div className="px-5 pt-3 pb-0 flex-shrink-0">
+            <p className="text-xs text-gray-500">
+              {formatDate(entry.date)} · {DIALECT_LABEL[entry.dialect] ?? entry.dialect}
+            </p>
+          </div>
+        )}
+
+        {/* Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="space-y-6">
             {/* Words */}
-            {data.words?.length > 0 && (
+            {entry.words?.length > 0 && (
               <section>
                 <h3 className="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-3">
-                  📝 핵심 단어 {data.words.length}개
+                  📝 핵심 단어 {entry.words.length}개
                 </h3>
                 <div className="space-y-1.5">
-                  {data.words.map((w, i) => (
+                  {entry.words.map((w, i) => (
                     <div key={i} className="flex items-start gap-3 bg-gray-800/60 rounded-xl px-3 py-2.5">
                       <span className="text-gray-600 text-xs w-4 flex-shrink-0 mt-0.5 text-right">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="font-semibold text-white">{w.word}</span>
+                          {isJa && w.reading ? (
+                            <ruby className="font-semibold text-white leading-loose">
+                              {w.word}
+                              <rt className="text-[10px] font-normal text-indigo-300">{w.reading}</rt>
+                            </ruby>
+                          ) : (
+                            <span className="font-semibold text-white">{w.word}</span>
+                          )}
                           {w.pos && (
                             <span className="text-[10px] text-indigo-400 bg-indigo-950/60 px-1.5 py-0.5 rounded-full">
                               {w.pos}
@@ -247,13 +353,13 @@ function ReviewModal({
             )}
 
             {/* Expressions */}
-            {data.expressions?.length > 0 && (
+            {entry.expressions?.length > 0 && (
               <section>
                 <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-widest mb-3">
-                  💬 핵심 표현 {data.expressions.length}개
+                  💬 핵심 표현 {entry.expressions.length}개
                 </h3>
                 <div className="space-y-1.5">
-                  {data.expressions.map((e, i) => (
+                  {entry.expressions.map((e, i) => (
                     <div key={i} className="flex items-start gap-3 bg-gray-800/60 rounded-xl px-3 py-2.5">
                       <span className="text-gray-600 text-xs w-4 flex-shrink-0 mt-0.5 text-right">{i + 1}</span>
                       <div className="flex-1 min-w-0">

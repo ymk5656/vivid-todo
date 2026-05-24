@@ -163,7 +163,14 @@ export default function DictDrawer({ open, onClose, pendingWord, searchKey = 0, 
               {/* Word + meta */}
               <div>
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="text-2xl font-bold text-white">{entry.word}</span>
+                  {entry.lang === "ja" && entry.pronunciation ? (
+                    <ruby className="text-2xl font-bold text-white leading-loose">
+                      {entry.word}
+                      <rt className="text-xs font-normal text-indigo-300 tracking-wider">{entry.pronunciation}</rt>
+                    </ruby>
+                  ) : (
+                    <span className="text-2xl font-bold text-white">{entry.word}</span>
+                  )}
                   <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
                     {entry.lang === "es" ? "스페인어" : entry.lang === "ja" ? "일본어" : "한국어"}
                   </span>
@@ -171,7 +178,8 @@ export default function DictDrawer({ open, onClose, pendingWord, searchKey = 0, 
                     <span className="text-xs text-indigo-400">{entry.pos}</span>
                   )}
                 </div>
-                {entry.pronunciation && (
+                {/* Show bracket pronunciation only for non-Japanese entries */}
+                {entry.pronunciation && entry.lang !== "ja" && (
                   <p className="text-gray-400 text-sm mt-1">[{entry.pronunciation}]</p>
                 )}
               </div>

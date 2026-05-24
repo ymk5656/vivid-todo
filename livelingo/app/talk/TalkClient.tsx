@@ -20,6 +20,7 @@ interface HighlightState {
 
 interface SummaryWord {
   word: string;
+  reading?: string;  // hiragana furigana — Japanese only
   pos: string;
   translation: string;
   example?: string;
@@ -670,10 +671,27 @@ export default function TalkClient() {
         <SummaryModal
           data={summaryData}
           loading={summaryLoading}
+          dialect={dialect}
           onClose={() => setSummaryOpen(false)}
           onExit={() => {
             if (summaryData) {
               try {
+                const entry = {
+                  date: new Date().toISOString(),
+                  dialect,
+                  gender,
+                  level,
+                  words: summaryData.words,
+                  expressions: summaryData.expressions,
+                };
+                const prev: typeof entry[] = JSON.parse(
+                  localStorage.getItem("livelingo_summaries") ?? "[]"
+                );
+                localStorage.setItem(
+                  "livelingo_summaries",
+                  JSON.stringify([entry, ...prev].slice(0, 3))
+                );
+                // Backward compat
                 localStorage.setItem("livelingo_last_summary", JSON.stringify(summaryData));
                 localStorage.setItem("livelingo_last_settings", JSON.stringify({ dialect, gender, level }));
               } catch {}
@@ -742,6 +760,7 @@ export default function TalkClient() {
 function SummaryModal({
   data,
   loading,
+  dialect,
   onClose,
   onExit,
   onNewChat,
@@ -750,6 +769,7 @@ function SummaryModal({
 }: {
   data: SummaryData | null;
   loading: boolean;
+  dialect: string;
   onClose: () => void;
   onExit: () => void;
   onNewChat: () => void;
@@ -796,7 +816,14 @@ function SummaryModal({
                       <span className="text-gray-600 text-xs w-4 flex-shrink-0 mt-0.5 text-right">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="font-semibold text-white">{w.word}</span>
+                          {dialect.startsWith("ja-") && w.reading ? (
+                            <ruby className="font-semibold text-white leading-loose">
+                              {w.word}
+                              <rt className="text-[10px] font-normal text-indigo-300">{w.reading}</rt>
+                            </ruby>
+                          ) : (
+                            <span className="font-semibold text-white">{w.word}</span>
+                          )}
                           {w.pos && (
                             <span className="text-[10px] text-indigo-400 bg-indigo-950/60 px-1.5 py-0.5 rounded-full">
                               {w.pos}
