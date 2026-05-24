@@ -105,12 +105,13 @@ const LEVEL_INSTRUCTIONS_JA: Record<string, string> = {
 
 const FORMAT_INSTRUCTION_EN = `
 
-반드시 아래 형식으로만 답변할 것:
-[영어 답변]
+IMPORTANT — reply using this EXACT format (replace the ↓ placeholder lines):
+Your English reply goes here.
 ---TRADUCCIÓN---
-[한국어 번역 — 오직 한글(가나다), 숫자, 공백, 문장부호만 허용. 다른 언어 문자 절대 금지]
+한국어 번역이 여기에 옵니다. (Korean characters only — no English, no Chinese, no other scripts)
 ---CORRECCIÓN---
-[한국어 교정 — 오류가 있으면 한국어로만, 없으면 반드시 "없음"만 쓸 것]`;
+없음
+(If user made grammar errors, replace 없음 with a Korean-only correction. Otherwise keep 없음 exactly as shown.)`;
 
 const BASE_PROMPTS_EN: Record<string, string> = {
   "en-US": "You are an English conversation tutor using American English. Speak in a natural, friendly style with typical American expressions and vocabulary.",
@@ -240,22 +241,28 @@ function parseResponse(raw: string): {
   const spanish = parts[0].trim();
   const rest = parts[1].split(/---CORRECCIÓN---/);
   let koreanRaw = rest[0].trim();
+  let correctionRaw = rest[1]?.trim() ?? "없음";
 
-  // The LLM sometimes echoes the foreign-language reply before the Korean translation,
-  // and/or inserts a "---한국어 번역---" sub-header. Extract only what follows it.
+  // Pattern A: LLM inserts "---한국어 번역---" sub-header after echoing the foreign text
   const subHeaderMatch = koreanRaw.match(/---[^\n]*번역[^\n]*---\s*([\s\S]+)/);
   if (subHeaderMatch) {
     koreanRaw = subHeaderMatch[1].trim();
   } else {
-    // No sub-header — strip leading lines that contain no Korean characters
+    // Strip leading lines without Korean characters (LLM sometimes echoes the foreign reply first)
     const lines = koreanRaw.split('\n');
     const firstKoreanIdx = lines.findIndex(l => /[가-힣]/.test(l));
     if (firstKoreanIdx > 0) koreanRaw = lines.slice(firstKoreanIdx).join('\n').trim();
+
+    // Pattern B: LLM accidentally placed the Korean translation in the CORRECCIÓN section.
+    // Detect: TRADUCCIÓN section has no Korean chars, CORRECCIÓN section does.
+    if (!/[가-힣]/.test(koreanRaw) && /[가-힣]/.test(correctionRaw) && correctionRaw !== "없음") {
+      koreanRaw = correctionRaw;
+      correctionRaw = "없음";
+    }
   }
 
   const korean = enforceKorean(koreanRaw);
-  const rawCorrection = rest[1]?.trim() ?? "없음";
-  const correction = rawCorrection === "없음" ? "없음" : enforceKorean(rawCorrection) || "없음";
+  const correction = correctionRaw === "없음" ? "없음" : enforceKorean(correctionRaw) || "없음";
   return { spanish, korean, correction };
 }
 
@@ -275,12 +282,12 @@ export async function POST(req: NextRequest) {
 
     const FORMAT_REMINDER =
       lang === "ja"
-        ? "\n\n[반드시 형식: 일본어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]"
+        ? "\n\n반드시 형식 준수: 일본어답변\n---TRADUCCIÓN---\n한국어번역(한글만)\n---CORRECCIÓN---\n없음(또는교정내용)"
         : lang === "en"
-        ? "\n\n[반드시 형식: 영어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]"
+        ? "\n\n반드시 형식 준수: 영어답변\n---TRADUCCIÓN---\n한국어번역(한글만)\n---CORRECCIÓN---\n없음(또는교정내용)"
         : lang === "zh"
-        ? "\n\n[반드시 형식: 중국어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]"
-        : "\n\n[반드시 형식: 스페인어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]";
+        ? "\n\n반드시 형식 준수: 중국어답변\n---TRADUCCIÓN---\n한국어번역(한글만)\n---CORRECCIÓN---\n없음(또는교정내용)"
+        : "\n\n반드시 형식 준수: 스페인어답변\n---TRADUCCIÓN---\n한국어번역(한글만)\n---CORRECCIÓN---\n없음(또는교정내용)";
 
     let userContent: string;
     if (lang === "ja") {
