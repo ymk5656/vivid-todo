@@ -405,10 +405,11 @@ export default function TalkClient() {
             const durationMs = audioBuf.duration * 1000;
             if (isFinite(durationMs) && durationMs > 0) {
               const wordRanges = buildWordRanges(text);
-              wordRanges.forEach((w, i) => {
+              const totalLen = Math.max(text.length, 1);
+              wordRanges.forEach((w) => {
                 const t = setTimeout(
                   () => setHighlight({ idx, start: w.start, len: w.len }),
-                  (i / wordRanges.length) * durationMs
+                  (w.start / totalLen) * durationMs
                 );
                 timerIdsRef.current.push(t);
               });

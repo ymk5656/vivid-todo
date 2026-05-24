@@ -134,7 +134,9 @@ export default function Home() {
     } catch {}
   }, []);
 
-  const dueItems = getDueItems(srsItems);
+  const filteredSummaries = savedSummaries.filter(s => s.dialect.startsWith(lang + "-"));
+  const filteredSrsItems = srsItems.filter(s => s.dialect.startsWith(lang + "-"));
+  const dueItems = getDueItems(filteredSrsItems);
 
   const dialects =
     lang === "en" ? DIALECTS_EN :
@@ -240,10 +242,10 @@ export default function Home() {
       </div>
 
       {/* Bottom bar */}
-      {(savedSummaries.length > 0 || dueItems.length > 0 || srsItems.length > 0) && (
+      {(filteredSummaries.length > 0 || dueItems.length > 0 || filteredSrsItems.length > 0) && (
         <div className="fixed bottom-0 left-0 right-0 flex flex-col items-center px-4 py-4 bg-gray-950/80 backdrop-blur-xl border-t border-white/5 z-40">
           <div className="w-full max-w-sm flex gap-3">
-            {savedSummaries.length > 0 && (
+            {filteredSummaries.length > 0 && (
               <button
                 onClick={() => setReviewOpen(true)}
                 className="flex-1 py-3 rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-200 border border-white/10 text-sm font-semibold transition-all shadow-lg hover:shadow-gray-700/50 flex items-center justify-center gap-2"
@@ -252,7 +254,7 @@ export default function Home() {
               </button>
             )}
             
-            {(dueItems.length > 0 || srsItems.length > 0) && (
+            {(dueItems.length > 0 || filteredSrsItems.length > 0) && (
               <button
                 onClick={() => setSrsReviewOpen(true)}
                 className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400/30 text-sm font-semibold transition-all shadow-lg shadow-indigo-600/20 hover:shadow-indigo-500/40 flex items-center justify-center gap-2 relative overflow-hidden"
@@ -273,14 +275,15 @@ export default function Home() {
       {/* Review modals */}
       {reviewOpen && (
         <ReviewModal
-          entries={savedSummaries}
+          entries={filteredSummaries}
           onClose={() => setReviewOpen(false)}
         />
       )}
       
       {srsReviewOpen && (
         <SRSReviewModal 
-          items={srsItems} 
+          items={srsItems}
+          langPrefix={lang + "-"}
           onUpdate={(newItems) => {
             setSrsItems(newItems);
             localStorage.setItem("livelingo_srs_items", JSON.stringify(newItems));
@@ -418,10 +421,12 @@ function ReviewModal({
 
 function SRSReviewModal({
   items,
+  langPrefix,
   onUpdate,
   onClose,
 }: {
   items: SRSItem[];
+  langPrefix: string;
   onUpdate: (newItems: SRSItem[]) => void;
   onClose: () => void;
 }) {
@@ -431,9 +436,10 @@ function SRSReviewModal({
   const [isDone, setIsDone] = useState(false);
 
   useEffect(() => {
-    const due = getDueItems(items);
-    setSessionItems(due.length > 0 ? due : items.slice(0, 5)); // 복습할게 없으면 최근 5개 무작위
-  }, [items]);
+    const langItems = items.filter(it => it.dialect.startsWith(langPrefix));
+    const due = getDueItems(langItems);
+    setSessionItems(due.length > 0 ? due : langItems.slice(0, 5)); // 복습할게 없으면 해당 언어의 최근 5개 무작위
+  }, [items, langPrefix]);
 
   const currentItem = sessionItems[currentIndex];
 
