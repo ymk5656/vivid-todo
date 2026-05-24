@@ -163,7 +163,7 @@ export default function DictDrawer({ open, onClose, pendingWord, searchKey = 0, 
               {/* Word + meta */}
               <div>
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  {entry.lang === "ja" && entry.pronunciation ? (
+                  {(entry.lang === "ja" || entry.lang === "zh") && entry.pronunciation ? (
                     <ruby className="text-2xl font-bold text-white leading-loose">
                       {entry.word}
                       <rt className="text-xs font-normal text-indigo-300 tracking-wider">{entry.pronunciation}</rt>
@@ -172,14 +172,14 @@ export default function DictDrawer({ open, onClose, pendingWord, searchKey = 0, 
                     <span className="text-2xl font-bold text-white">{entry.word}</span>
                   )}
                   <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
-                    {entry.lang === "es" ? "스페인어" : entry.lang === "ja" ? "일본어" : "한국어"}
+                    {entry.lang === "es" ? "스페인어" : entry.lang === "ja" ? "일본어" : entry.lang === "en" ? "영어" : entry.lang === "zh" ? "중국어" : "한국어"}
                   </span>
                   {entry.pos && (
                     <span className="text-xs text-indigo-400">{entry.pos}</span>
                   )}
                 </div>
-                {/* Show bracket pronunciation only for non-Japanese entries */}
-                {entry.pronunciation && entry.lang !== "ja" && (
+                {/* Show bracket pronunciation for Spanish and English (IPA) entries only */}
+                {entry.pronunciation && entry.lang !== "ja" && entry.lang !== "zh" && (
                   <p className="text-gray-400 text-sm mt-1">[{entry.pronunciation}]</p>
                 )}
               </div>

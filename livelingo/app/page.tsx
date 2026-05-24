@@ -2,15 +2,24 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
-type Lang = "es" | "ja";
+type Lang = "en" | "es" | "zh" | "ja";
+
+const DIALECTS_EN = [
+  { code: "en-US", flag: "🇺🇸", name: "미국 영어", sub: "American English" },
+  { code: "en-GB", flag: "🇬🇧", name: "영국 영어", sub: "British English" },
+];
 
 const DIALECTS_ES = [
   { code: "es-MX", flag: "🇲🇽", name: "멕시코", sub: "라틴아메리카 표준" },
   { code: "es-CO", flag: "🇨🇴", name: "콜롬비아", sub: "명확한 발음" },
   { code: "es-ES", flag: "🇪🇸", name: "스페인", sub: "카스티야 발음" },
   { code: "es-AR", flag: "🇦🇷", name: "아르헨티나", sub: "voseo 사용" },
+];
+
+const DIALECTS_ZH = [
+  { code: "zh-CN", flag: "🇨🇳", name: "중국어 (간체)", sub: "보통화 · 대륙" },
+  { code: "zh-TW", flag: "🇹🇼", name: "중국어 (번체)", sub: "보통화 · 대만" },
 ];
 
 const DIALECTS_JA = [
@@ -33,17 +42,21 @@ const LEVEL_ACTIVE: Record<string, string> = {
 };
 
 const DIALECT_LABEL: Record<string, string> = {
+  "en-US": "🇺🇸 미국 영어",
+  "en-GB": "🇬🇧 영국 영어",
   "es-MX": "🇲🇽 멕시코",
   "es-CO": "🇨🇴 콜롬비아",
   "es-ES": "🇪🇸 스페인",
   "es-AR": "🇦🇷 아르헨티나",
+  "zh-CN": "🇨🇳 중국어 (간체)",
+  "zh-TW": "🇹🇼 중국어 (번체)",
   "ja-JP": "🇯🇵 표준 일본어",
   "ja-KS": "🏯 간사이 방언",
 };
 
 interface SummaryWord {
   word: string;
-  reading?: string;   // hiragana furigana — Japanese sessions only
+  reading?: string;   // hiragana (Japanese) or pinyin (Chinese)
   pos: string;
   translation: string;
   example?: string;
@@ -99,8 +112,8 @@ function primeAudio() {
 }
 
 export default function Home() {
-  const router = useRouter();
-  const [lang, setLang] = useState<Lang>("es");
+  // Always default to "en" — never read from localStorage
+  const [lang, setLang] = useState<Lang>("en");
   const [gender, setGender] = useState<"female" | "male">("female");
   const [level, setLevel] = useState<Level>("beginner");
   const [savedSummaries, setSavedSummaries] = useState<SavedSummaryEntry[]>([]);
@@ -139,13 +152,17 @@ export default function Home() {
     } catch {}
   }, []);
 
-  const latest = savedSummaries[0];
-  const talkHref = latest
-    ? `/talk?dialect=${latest.dialect}&gender=${latest.gender}&level=${latest.level}`
-    : `/talk?dialect=${lang === "ja" ? "ja-JP" : "es-MX"}&gender=${gender}&level=${level}`;
+  const dialects =
+    lang === "en" ? DIALECTS_EN :
+    lang === "zh" ? DIALECTS_ZH :
+    lang === "ja" ? DIALECTS_JA :
+    DIALECTS_ES;
 
-  const dialects = lang === "ja" ? DIALECTS_JA : DIALECTS_ES;
-  const subtitle = lang === "ja" ? "일본어 대화 연습" : "스페인어 대화 연습";
+  const subtitle =
+    lang === "en" ? "영어 대화 연습" :
+    lang === "zh" ? "중국어 대화 연습" :
+    lang === "ja" ? "일본어 대화 연습" :
+    "스페인어 대화 연습";
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen px-4 pb-28">
@@ -155,13 +172,15 @@ export default function Home() {
       {/* Language tabs */}
       <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1">
         {([
+          { id: "en" as Lang, label: "🇺🇸 영어" },
           { id: "es" as Lang, label: "🇪🇸 스페인어" },
+          { id: "zh" as Lang, label: "🇨🇳 중국어" },
           { id: "ja" as Lang, label: "🇯🇵 일본어" },
         ] as const).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setLang(tab.id)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
               lang === tab.id
                 ? "bg-indigo-600 text-white"
                 : "text-gray-500 hover:text-gray-300"
@@ -226,16 +245,10 @@ export default function Home() {
       {/* Bottom bar — shown only when saved summaries exist */}
       {savedSummaries.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 flex justify-center px-4 py-4 bg-gray-950/95 backdrop-blur-sm border-t border-gray-800">
-          <div className="flex gap-2 w-full max-w-xs">
-            <button
-              onClick={() => { primeAudio(); router.push(talkHref); }}
-              className="flex-1 py-2.5 rounded-xl border border-gray-700 text-gray-300 text-sm hover:border-indigo-500 hover:text-indigo-300 transition-colors"
-            >
-              대화하기
-            </button>
+          <div className="w-full max-w-xs">
             <button
               onClick={() => setReviewOpen(true)}
-              className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
+              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
             >
               📚 복습하기
             </button>
@@ -265,7 +278,7 @@ function ReviewModal({
   const entry = entries[tab];
   if (!entry) return null;
 
-  const isJa = entry.dialect.startsWith("ja-");
+  const showRuby = entry.dialect.startsWith("ja-") || entry.dialect.startsWith("zh-");
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -327,7 +340,7 @@ function ReviewModal({
                       <span className="text-gray-600 text-xs w-4 flex-shrink-0 mt-0.5 text-right">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 flex-wrap">
-                          {isJa && w.reading ? (
+                          {showRuby && w.reading ? (
                             <ruby className="font-semibold text-white leading-loose">
                               {w.word}
                               <rt className="text-[10px] font-normal text-indigo-300">{w.reading}</rt>

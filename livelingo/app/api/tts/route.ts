@@ -25,13 +25,29 @@ const VOICES: Record<string, Record<string, { languageCode: string; name: string
     female: { languageCode: "ja-JP", name: "ja-JP-Neural2-B", ssmlGender: "FEMALE" },
     male:   { languageCode: "ja-JP", name: "ja-JP-Neural2-C", ssmlGender: "MALE" },
   },
+  "en-US": {
+    female: { languageCode: "en-US", name: "en-US-Neural2-F", ssmlGender: "FEMALE" },
+    male:   { languageCode: "en-US", name: "en-US-Neural2-D", ssmlGender: "MALE" },
+  },
+  "en-GB": {
+    female: { languageCode: "en-GB", name: "en-GB-Neural2-A", ssmlGender: "FEMALE" },
+    male:   { languageCode: "en-GB", name: "en-GB-Neural2-B", ssmlGender: "MALE" },
+  },
+  "zh-CN": {
+    female: { languageCode: "cmn-CN", name: "cmn-CN-Neural2-A", ssmlGender: "FEMALE" },
+    male:   { languageCode: "cmn-CN", name: "cmn-CN-Neural2-B", ssmlGender: "MALE" },
+  },
+  "zh-TW": {
+    female: { languageCode: "cmn-TW", name: "cmn-TW-Wavenet-A", ssmlGender: "FEMALE" },
+    male:   { languageCode: "cmn-TW", name: "cmn-TW-Wavenet-B", ssmlGender: "MALE" },
+  },
 };
 
-const DEFAULT_VOICE = VOICES["es-MX"];
+const DEFAULT_VOICE = VOICES["en-US"];
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, gender = "female", dialect = "es-MX" } = (await req.json()) as {
+    const { text, gender = "female", dialect = "en-US" } = (await req.json()) as {
       text: string;
       gender?: string;
       dialect?: string;

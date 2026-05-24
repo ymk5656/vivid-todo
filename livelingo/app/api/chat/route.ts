@@ -3,7 +3,14 @@ import Groq from "groq-sdk";
 
 const getGroq = (apiKey: string) => new Groq({ apiKey });
 
-function isJapanese(dialect: string) { return dialect.startsWith("ja-"); }
+type LangGroup = "es" | "ja" | "en" | "zh";
+
+function getLang(dialect: string): LangGroup {
+  if (dialect.startsWith("ja-")) return "ja";
+  if (dialect.startsWith("en-")) return "en";
+  if (dialect.startsWith("zh-")) return "zh";
+  return "es";
+}
 
 // ── Spanish prompts ──────────────────────────────────────────────────────────
 
@@ -12,7 +19,7 @@ const FORMAT_INSTRUCTION_ES = `
 반드시 아래 형식으로만 답변할 것:
 [스페인어 답변]
 ---TRADUCCIÓN---
-[한국어 번역 — 오직 한글(가나다), 숫자, 공백, 문장부호만 허용. 일본어·중국어·베트남어 등 다른 언어 문자 절대 금지]
+[한국어 번역 — 오직 한글(가나다), 숫자, 공백, 문장부호만 허용. 다른 언어 문자 절대 금지]
 ---CORRECCIÓN---
 [한국어 교정 — 오류가 있으면 한국어로만, 없으면 반드시 "없음"만 쓸 것]`;
 
@@ -57,7 +64,7 @@ const FORMAT_INSTRUCTION_JA = `
 반드시 아래 형식으로만 답변할 것:
 [일본어 답변]
 ---TRADUCCIÓN---
-[한국어 번역 — 오직 한글(가나다), 숫자, 공백, 문장부호만 허용. 스페인어·중국어·베트남어 등 다른 언어 문자 절대 금지]
+[한국어 번역 — 오직 한글(가나다), 숫자, 공백, 문장부호만 허용. 다른 언어 문자 절대 금지]
 ---CORRECCIÓN---
 [한국어 교정 — 오류가 있으면 한국어로만, 없으면 반드시 "없음"만 쓸 것]`;
 
@@ -94,15 +101,116 @@ const LEVEL_INSTRUCTIONS_JA: Record<string, string> = {
 - OBLIGATORY RULE: ユーザーのメッセージが3語以下なら、必ず最初に「もしかして：「[上級的な表現の提案]」と言いたかったですか？」と書いてください。`,
 };
 
+// ── English prompts ──────────────────────────────────────────────────────────
+
+const FORMAT_INSTRUCTION_EN = `
+
+반드시 아래 형식으로만 답변할 것:
+[영어 답변]
+---TRADUCCIÓN---
+[한국어 번역 — 오직 한글(가나다), 숫자, 공백, 문장부호만 허용. 다른 언어 문자 절대 금지]
+---CORRECCIÓN---
+[한국어 교정 — 오류가 있으면 한국어로만, 없으면 반드시 "없음"만 쓸 것]`;
+
+const BASE_PROMPTS_EN: Record<string, string> = {
+  "en-US": "You are an English conversation tutor using American English. Speak in a natural, friendly style with typical American expressions and vocabulary.",
+  "en-GB": "You are an English conversation tutor using British English. Speak in a natural, friendly style with typical British expressions, spelling, and vocabulary.",
+};
+
+const PROACTIVE_INSTRUCTION_EN = " You lead the conversation: always end your response with a natural question or topic suggestion so the learner has something concrete to respond to. Never leave the conversation without direction.";
+
+const GENDER_ADDON_EN: Record<string, string> = {
+  male: " Speak in a casual, relaxed masculine style.",
+  female: " Speak in a warm, expressive feminine style.",
+};
+
+const LEVEL_INSTRUCTIONS_EN: Record<string, string> = {
+  beginner: `
+Level: BEGINNER.
+- Respond with very short, simple sentences (1-2 sentences max).
+- Use only basic, everyday vocabulary.
+- OBLIGATORY RULE: If the user's message is 3 words or fewer (e.g., "yes", "I like", "don't know"), ALWAYS write this line first before your normal response: "Did you mean: «[write a complete natural English sentence the user probably meant]»?" — fill in the brackets with the actual suggested sentence.`,
+
+  intermediate: `
+Level: INTERMEDIATE.
+- Respond with 2-3 medium-length sentences.
+- Use varied but accessible vocabulary.
+- OBLIGATORY RULE: If the user's message is 3 words or fewer, ALWAYS write first: "Did you mean: «[complete suggested sentence]»?" — fill in the brackets with the actual suggested sentence.`,
+
+  advanced: `
+Level: ADVANCED.
+- Respond with 3-5 sentences using natural expressions, idioms, and complex grammar.
+- Expand vocabulary with synonyms and idiomatic phrases.
+- OBLIGATORY RULE: If the user's message is 3 words or fewer, ALWAYS start with: "Did you mean: «[advanced, elaborate version]»?" — fill in the brackets with the actual expression.`,
+};
+
+// ── Chinese prompts ───────────────────────────────────────────────────────────
+
+const FORMAT_INSTRUCTION_ZH = `
+
+반드시 아래 형식으로만 답변할 것:
+[중국어 답변]
+---TRADUCCIÓN---
+[한국어 번역 — 오직 한글(가나다), 숫자, 공백, 문장부호만 허용. 다른 언어 문자 절대 금지]
+---CORRECCIÓN---
+[한국어 교정 — 오류가 있으면 한국어로만, 없으면 반드시 "없음"만 쓸 것]`;
+
+const BASE_PROMPTS_ZH: Record<string, string> = {
+  "zh-CN": "你是一位普通话会话辅导老师。请用自然、友好的标准普通话交谈，使用中国大陆常见的词汇和表达方式（简体字）。",
+  "zh-TW": "你是一位中文會話輔導老師。請用自然、友好的台灣中文交談，使用台灣常見的詞彙和表達方式（繁體字）。",
+};
+
+const PROACTIVE_INSTRUCTION_ZH = " 你来引导对话：每次回答结尾都要提出一个自然的问题或话题建议，让学习者有具体的内容可以回应。对话不要没有方向。";
+
+const GENDER_ADDON_ZH: Record<string, string> = {
+  male: " 请用自然、随和的男性风格说话。",
+  female: " 请用温暖、亲切的女性风格说话。",
+};
+
+const LEVEL_INSTRUCTIONS_ZH: Record<string, string> = {
+  beginner: `
+级别：初级。
+- 用非常简短的句子回答（最多1-2句）。
+- 只使用基础、日常词汇。
+- 重要规则：如果用户的消息只有3个词或更少（如"你好"、"我喜欢"、"不知道"），请务必先写："你是想说：「[在这里写一个完整的自然中文句子]」吗？" — 括号内填写实际建议的句子，然后再继续正常回复。`,
+
+  intermediate: `
+级别：中级。
+- 用2-3句中等长度的句子回答。
+- 使用多样但易懂的词汇。
+- 重要规则：如果用户消息只有3个词或更少，请务必先写："你是想说：「[完整句子建议]」吗？"`,
+
+  advanced: `
+级别：高级。
+- 用3-5句话回答，使用自然表达、成语和复杂语法。
+- 丰富词汇，使用同义词和惯用语。
+- 重要规则：如果用户消息只有3个词或更少，请务必先写："你是想说：「[高级、完整的表达]」吗？"`,
+};
+
 // ── System prompt builder ────────────────────────────────────────────────────
 
 function buildSystemPrompt(dialect: string, gender: string, level: string): string {
-  if (isJapanese(dialect)) {
+  const lang = getLang(dialect);
+
+  if (lang === "ja") {
     const base = BASE_PROMPTS_JA[dialect] ?? BASE_PROMPTS_JA["ja-JP"];
     const genderAddon = GENDER_ADDON_JA[gender] ?? "";
     const levelInstruction = LEVEL_INSTRUCTIONS_JA[level] ?? LEVEL_INSTRUCTIONS_JA["beginner"];
     return base + genderAddon + PROACTIVE_INSTRUCTION_JA + levelInstruction + FORMAT_INSTRUCTION_JA;
   }
+  if (lang === "en") {
+    const base = BASE_PROMPTS_EN[dialect] ?? BASE_PROMPTS_EN["en-US"];
+    const genderAddon = GENDER_ADDON_EN[gender] ?? "";
+    const levelInstruction = LEVEL_INSTRUCTIONS_EN[level] ?? LEVEL_INSTRUCTIONS_EN["beginner"];
+    return base + genderAddon + PROACTIVE_INSTRUCTION_EN + levelInstruction + FORMAT_INSTRUCTION_EN;
+  }
+  if (lang === "zh") {
+    const base = BASE_PROMPTS_ZH[dialect] ?? BASE_PROMPTS_ZH["zh-CN"];
+    const genderAddon = GENDER_ADDON_ZH[gender] ?? "";
+    const levelInstruction = LEVEL_INSTRUCTIONS_ZH[level] ?? LEVEL_INSTRUCTIONS_ZH["beginner"];
+    return base + genderAddon + PROACTIVE_INSTRUCTION_ZH + levelInstruction + FORMAT_INSTRUCTION_ZH;
+  }
+  // Spanish (default)
   const base = BASE_PROMPTS_ES[dialect] ?? BASE_PROMPTS_ES["es-MX"];
   const genderAddon = GENDER_ADDON_ES[gender] ?? "";
   const levelInstruction = LEVEL_INSTRUCTIONS_ES[level] ?? LEVEL_INSTRUCTIONS_ES["beginner"];
@@ -148,14 +256,20 @@ export async function POST(req: NextRequest) {
       history: HistoryItem[];
     };
 
+    const lang = getLang(dialect);
     const systemPrompt = buildSystemPrompt(dialect, gender, level);
 
-    const FORMAT_REMINDER = isJapanese(dialect)
-      ? "\n\n[반드시 형식: 일본어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]"
-      : "\n\n[반드시 형식: 스페인어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]";
+    const FORMAT_REMINDER =
+      lang === "ja"
+        ? "\n\n[반드시 형식: 일본어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]"
+        : lang === "en"
+        ? "\n\n[반드시 형식: 영어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]"
+        : lang === "zh"
+        ? "\n\n[반드시 형식: 중국어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]"
+        : "\n\n[반드시 형식: 스페인어답변\n---TRADUCCIÓN---\n한국어번역\n---CORRECCIÓN---\n교정또는없음]";
 
     let userContent: string;
-    if (isJapanese(dialect)) {
+    if (lang === "ja") {
       if (trigger === "greet") {
         userContent = "[開始] 学習者がアプリを開きました。日本語で温かく挨拶し、簡単に自己紹介して、今日どんなトピックを練習したいか聞いてください。";
       } else if (trigger === "followup") {
@@ -163,7 +277,24 @@ export async function POST(req: NextRequest) {
       } else {
         userContent = message ?? "";
       }
+    } else if (lang === "en") {
+      if (trigger === "greet") {
+        userContent = "[START] The learner just opened the app. Greet them warmly in English, introduce yourself briefly, and ask what topic they'd like to practice today.";
+      } else if (trigger === "followup") {
+        userContent = "[SILENCE] The learner hasn't responded for a while. Continue the conversation naturally in English with a new question or topic.";
+      } else {
+        userContent = message ?? "";
+      }
+    } else if (lang === "zh") {
+      if (trigger === "greet") {
+        userContent = "[开始] 学习者刚打开了应用。请用中文热情地打招呼，简单自我介绍，然后问他们今天想练习什么话题。";
+      } else if (trigger === "followup") {
+        userContent = "[沉默] 学习者一段时间没有回复。请自然地继续对话，提出新问题或话题。";
+      } else {
+        userContent = message ?? "";
+      }
     } else {
+      // Spanish
       if (trigger === "greet") {
         userContent = "[INICIO] El estudiante acaba de abrir la app. Salúdalo calurosamente, preséntate brevemente y pregúntale qué tema le gustaría practicar hoy.";
       } else if (trigger === "followup") {
@@ -187,7 +318,6 @@ export async function POST(req: NextRequest) {
       process.env.GROQ_API_KEY,
     ].map(k => k?.trim()).filter(Boolean) as string[];
     console.log(`[key-rotation] keys available: ${keys.length}, lengths: ${keys.map(k => k.length).join(",")}`);
-
 
     let completion: Awaited<ReturnType<ReturnType<typeof getGroq>["chat"]["completions"]["create"]>> | null = null;
 

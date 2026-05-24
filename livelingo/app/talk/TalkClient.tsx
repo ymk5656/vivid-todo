@@ -64,6 +64,10 @@ const STT_LANG: Record<string, string> = {
   "es-AR": "es-AR",
   "ja-JP": "ja-JP",
   "ja-KS": "ja-JP",
+  "en-US": "en-US",
+  "en-GB": "en-GB",
+  "zh-CN": "zh-CN",
+  "zh-TW": "zh-TW",
 };
 
 const DIALECT_LABEL: Record<string, string> = {
@@ -73,6 +77,10 @@ const DIALECT_LABEL: Record<string, string> = {
   "es-AR": "🇦🇷 아르헨티나",
   "ja-JP": "🇯🇵 표준 일본어",
   "ja-KS": "🏯 간사이 방언",
+  "en-US": "🇺🇸 미국 영어",
+  "en-GB": "🇬🇧 영국 영어",
+  "zh-CN": "🇨🇳 중국어 (간체)",
+  "zh-TW": "🇹🇼 중국어 (번체)",
 };
 
 function SpeechText({
@@ -400,15 +408,19 @@ export default function TalkClient() {
 
       // Gender-aware voice selection
       const allVoices = window.speechSynthesis.getVoices();
-      const isJa = dialect.startsWith("ja-");
-      const langVoices = allVoices.filter((v) => v.lang.startsWith(isJa ? "ja" : "es"));
+      const ttsLang = dialect.startsWith("ja-") ? "ja" : dialect.startsWith("en-") ? "en" : dialect.startsWith("zh-") ? "zh" : "es";
+      const langVoices = allVoices.filter((v) => v.lang.startsWith(ttsLang === "zh" ? "zh" : ttsLang));
       if (langVoices.length > 0) {
-        const femalePattern = isJa
-          ? /female|kyoko|akiko|hiroshi.*f|女/i
-          : /helena|laura|paulina|monica|mónica|female|femenin|sabina/i;
-        const malePattern = isJa
-          ? /male|otoya|hiroshi|男/i
-          : /pablo|raul|juan|diego|miguel|male|masculin/i;
+        const femalePattern =
+          ttsLang === "ja" ? /female|kyoko|akiko|hiroshi.*f|女/i :
+          ttsLang === "en" ? /female|samantha|karen|victoria|moira|fiona|zira/i :
+          ttsLang === "zh" ? /female|tingting|meijia|女|ting-ting/i :
+          /helena|laura|paulina|monica|mónica|female|femenin|sabina/i;
+        const malePattern =
+          ttsLang === "ja" ? /male|otoya|hiroshi|男/i :
+          ttsLang === "en" ? /male|daniel|alex|fred|tom|lee/i :
+          ttsLang === "zh" ? /male|lekiu|男|li-mu/i :
+          /pablo|raul|juan|diego|miguel|male|masculin/i;
         const picked =
           gender === "female"
             ? langVoices.find((v) => femalePattern.test(v.name)) ?? langVoices[0]
@@ -484,18 +496,20 @@ export default function TalkClient() {
       } catch (err) {
         hadError = true;
         const isRateLimit = (err as Error).message === "rate_limit";
-        const isJa = dialect.startsWith("ja-");
+        const errLang = dialect.startsWith("ja-") ? "ja" : dialect.startsWith("en-") ? "en" : dialect.startsWith("zh-") ? "zh" : "es";
+        const errText =
+          errLang === "ja"
+            ? (isRateLimit ? "申し訳ありません、サービスが一時的に混雑しています。少しお待ちください。" : "申し訳ありません、エラーが発生しました。もう一度お試しください。")
+            : errLang === "en"
+            ? (isRateLimit ? "I'm sorry, the service is temporarily busy. Please try again in a moment." : "I'm sorry, an error occurred. Please try again.")
+            : errLang === "zh"
+            ? (isRateLimit ? "抱歉，服务暂时繁忙，请稍后再试。" : "抱歉，发生了错误，请再试一次。")
+            : (isRateLimit ? "Lo siento, el servicio está temporalmente saturado. Por favor, intenta en unos minutos." : "Lo siento, hubo un error. Por favor, intenta de nuevo.");
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            spanish: isJa
-              ? (isRateLimit
-                  ? "申し訳ありません、サービスが一時的に混雑しています。少しお待ちください。"
-                  : "申し訳ありません、エラーが発生しました。もう一度お試しください。")
-              : (isRateLimit
-                  ? "Lo siento, el servicio está temporalmente saturado. Por favor, intenta en unos minutos."
-                  : "Lo siento, hubo un error. Por favor, intenta de nuevo."),
+            spanish: errText,
             korean: isRateLimit
               ? "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."
               : "죄송합니다, 오류가 발생했습니다. 다시 시도해 주세요.",
@@ -664,7 +678,12 @@ export default function TalkClient() {
         pendingWord={dictSearch.word}
         searchKey={dictSearch.key}
         dialect={dialect}
-        title={dialect.startsWith("ja-") ? "📖 한-일 사전" : "📖 한-스 사전"}
+        title={
+          dialect.startsWith("ja-") ? "📖 한-일 사전" :
+          dialect.startsWith("en-") ? "📖 한-영 사전" :
+          dialect.startsWith("zh-") ? "📖 한-중 사전" :
+          "📖 한-스 사전"
+        }
       />
 
       {summaryOpen && (
@@ -716,7 +735,12 @@ export default function TalkClient() {
                 sendMessage(input);
               }
             }}
-            placeholder={dialect.startsWith("ja-") ? "일본어로 입력하거나 마이크를 누르세요..." : "스페인어로 입력하거나 마이크를 누르세요..."}
+            placeholder={
+              dialect.startsWith("ja-") ? "일본어로 입력하거나 마이크를 누르세요..." :
+              dialect.startsWith("en-") ? "영어로 입력하거나 마이크를 누르세요..." :
+              dialect.startsWith("zh-") ? "중국어로 입력하거나 마이크를 누르세요..." :
+              "스페인어로 입력하거나 마이크를 누르세요..."
+            }
             className="flex-1 bg-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-500"
           />
 
@@ -816,7 +840,7 @@ function SummaryModal({
                       <span className="text-gray-600 text-xs w-4 flex-shrink-0 mt-0.5 text-right">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 flex-wrap">
-                          {dialect.startsWith("ja-") && w.reading ? (
+                          {(dialect.startsWith("ja-") || dialect.startsWith("zh-")) && w.reading ? (
                             <ruby className="font-semibold text-white leading-loose">
                               {w.word}
                               <rt className="text-[10px] font-normal text-indigo-300">{w.reading}</rt>

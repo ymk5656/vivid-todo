@@ -3,6 +3,15 @@ import Groq from "groq-sdk";
 
 const getGroq = (apiKey: string) => new Groq({ apiKey });
 
+type LangGroup = "es" | "ja" | "en" | "zh";
+
+function getLang(dialect: string): LangGroup {
+  if (dialect.startsWith("ja-")) return "ja";
+  if (dialect.startsWith("en-")) return "en";
+  if (dialect.startsWith("zh-")) return "zh";
+  return "es";
+}
+
 const DIALECT_NOTE: Record<string, string> = {
   "es-MX": "Mexican Spanish",
   "es-CO": "Colombian Spanish",
@@ -10,6 +19,10 @@ const DIALECT_NOTE: Record<string, string> = {
   "es-AR": "Argentinian Spanish",
   "ja-JP": "Standard Japanese (Tokyo standard language)",
   "ja-KS": "Kansai Japanese (Osaka/Kyoto dialect)",
+  "en-US": "American English",
+  "en-GB": "British English",
+  "zh-CN": "Simplified Chinese (Mandarin, Mainland China)",
+  "zh-TW": "Traditional Chinese (Mandarin, Taiwan)",
 };
 
 export async function POST(req: NextRequest) {
@@ -23,15 +36,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No query" }, { status: 400 });
     }
 
-    const dialectNote = DIALECT_NOTE[dialect] ?? (dialect.startsWith("ja-") ? "Japanese" : "Spanish");
-    const isJapanese = dialect.startsWith("ja-");
+    const lang = getLang(dialect);
+    const dialectNote = DIALECT_NOTE[dialect] ?? dialect;
 
-    const systemContent = isJapanese
-      ? `You are a bilingual Korean-Japanese dictionary assistant. Use ${dialectNote}. Respond with valid JSON only, no extra text.`
-      : `You are a bilingual Korean-Spanish dictionary assistant. Use ${dialectNote} for Spanish. Respond with valid JSON only, no extra text.`;
+    let systemContent: string;
+    let userContent: string;
 
-    const userContent = isJapanese
-      ? `Look up this word or phrase: "${query.trim()}"
+    if (lang === "ja") {
+      systemContent = `You are a bilingual Korean-Japanese dictionary assistant. Use ${dialectNote}. Respond with valid JSON only, no extra text.`;
+      userContent = `Look up this word or phrase: "${query.trim()}"
 
 This is a Korean-Japanese dictionary. Always return the JAPANESE word as the primary entry, regardless of whether the input is Korean or Japanese.
 - If input is Korean: find the Japanese translation, use it as "word", set lang="ja"
@@ -53,8 +66,65 @@ Return exactly this JSON:
   ]
 }
 
-Provide 1-2 meanings. Keep everything concise.`
-      : `Look up this word or phrase: "${query.trim()}"
+Provide 1-2 meanings. Keep everything concise.`;
+
+    } else if (lang === "en") {
+      systemContent = `You are a bilingual Korean-English dictionary assistant. Use ${dialectNote}. Respond with valid JSON only, no extra text.`;
+      userContent = `Look up this word or phrase: "${query.trim()}"
+
+This is a Korean-English dictionary. Always return the ENGLISH word as the primary entry, regardless of whether the input is Korean or English.
+- If input is Korean: find the English translation, use it as "word", set lang="en"
+- If input is English: use the English word as "word", set lang="en"
+
+Return exactly this JSON:
+{
+  "word": "English word or phrase",
+  "lang": "en",
+  "pos": "part of speech in Korean (명사/동사/형용사/부사/구절/기타)",
+  "translation": "Korean meaning",
+  "pronunciation": "IPA pronunciation (e.g. /ɪˈkɒnəmi/ for economy). Use standard IPA notation.",
+  "meanings": [
+    {
+      "definition": "concise Korean definition",
+      "example_foreign": "natural example sentence in English",
+      "example_ko": "Korean translation of the example"
+    }
+  ]
+}
+
+Provide 1-2 meanings. Keep everything concise.`;
+
+    } else if (lang === "zh") {
+      systemContent = `You are a bilingual Korean-Chinese dictionary assistant. Use ${dialectNote}. Respond with valid JSON only, no extra text.`;
+      userContent = `Look up this word or phrase: "${query.trim()}"
+
+This is a Korean-Chinese dictionary. Always return the CHINESE word as the primary entry, regardless of whether the input is Korean or Chinese.
+- If input is Korean: find the Chinese translation, use it as "word", set lang="zh"
+- If input is Chinese: use the Chinese word as "word", set lang="zh"
+- Use ${dialect === "zh-TW" ? "Traditional Chinese characters (繁體字)" : "Simplified Chinese characters (简体字)"}
+
+Return exactly this JSON:
+{
+  "word": "Chinese word (e.g. 经济, 吃饭, 谢谢)",
+  "lang": "zh",
+  "pos": "part of speech in Korean (명사/동사/형용사/부사/구절/기타)",
+  "translation": "Korean meaning",
+  "pronunciation": "pinyin with tone marks (e.g. 经济 → jīngjì, 吃饭 → chīfàn). Always include tones.",
+  "meanings": [
+    {
+      "definition": "concise Korean definition",
+      "example_foreign": "natural example sentence in Chinese",
+      "example_ko": "Korean translation of the example"
+    }
+  ]
+}
+
+Provide 1-2 meanings. Keep everything concise.`;
+
+    } else {
+      // Spanish
+      systemContent = `You are a bilingual Korean-Spanish dictionary assistant. Use ${dialectNote} for Spanish. Respond with valid JSON only, no extra text.`;
+      userContent = `Look up this word or phrase: "${query.trim()}"
 
 Auto-detect whether it is Korean or Spanish. Return exactly this JSON:
 {
@@ -73,6 +143,7 @@ Auto-detect whether it is Korean or Spanish. Return exactly this JSON:
 }
 
 Provide 1-2 meanings. Keep everything concise.`;
+    }
 
     const keys = [
       process.env.GROQ_API_KEY_2,

@@ -8,6 +8,15 @@ interface HistoryItem {
   content: string;
 }
 
+type LangGroup = "es" | "ja" | "en" | "zh";
+
+function getLang(dialect: string): LangGroup {
+  if (dialect.startsWith("ja-")) return "ja";
+  if (dialect.startsWith("en-")) return "en";
+  if (dialect.startsWith("zh-")) return "zh";
+  return "es";
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { history, dialect = "es-MX" } = (await req.json()) as {
@@ -30,13 +39,19 @@ export async function POST(req: NextRequest) {
       "es-AR": "아르헨티나 스페인어",
       "ja-JP": "표준 일본어(도쿄)",
       "ja-KS": "간사이 방언(오사카·교토)",
+      "en-US": "미국 영어",
+      "en-GB": "영국 영어",
+      "zh-CN": "중국어(보통화, 간체)",
+      "zh-TW": "중국어(보통화, 번체)",
     };
 
-    const isJapanese = dialect.startsWith("ja-");
-    const langNote = dialectNote[dialect] ?? (isJapanese ? "일본어" : "스페인어");
+    const lang = getLang(dialect);
+    const langNote = dialectNote[dialect] ?? (lang === "ja" ? "일본어" : lang === "en" ? "영어" : lang === "zh" ? "중국어" : "스페인어");
 
-    const userContent = isJapanese
-      ? `다음 일본어 대화에서 학습에 유용한 핵심 단어 10개와 핵심 표현 5개를 추출하세요.
+    let userContent: string;
+
+    if (lang === "ja") {
+      userContent = `다음 일본어 대화에서 학습에 유용한 핵심 단어 10개와 핵심 표현 5개를 추출하세요.
 
 대화:
 ${conversationText}
@@ -61,8 +76,66 @@ ${conversationText}
   ]
 }
 
-words는 정확히 10개, expressions는 정확히 5개. 대화에 실제로 등장한 단어/표현 위주로 선택하되, 부족하면 관련 어휘를 추가하세요.`
-      : `다음 스페인어 대화에서 학습에 유용한 핵심 단어 10개와 핵심 표현 5개를 추출하세요.
+words는 정확히 10개, expressions는 정확히 5개. 대화에 실제로 등장한 단어/표현 위주로 선택하되, 부족하면 관련 어휘를 추가하세요.`;
+
+    } else if (lang === "en") {
+      userContent = `다음 영어 대화에서 학습에 유용한 핵심 단어 10개와 핵심 표현 5개를 추출하세요.
+
+대화:
+${conversationText}
+
+반드시 아래 JSON 형식으로만 답하세요:
+{
+  "words": [
+    {
+      "word": "영어 단어",
+      "pos": "품사 한국어(명사/동사/형용사/부사/기타)",
+      "translation": "한국어 뜻",
+      "example": "짧은 예문(영어)"
+    }
+  ],
+  "expressions": [
+    {
+      "expression": "영어 표현",
+      "translation": "한국어 번역",
+      "usage": "언제 어떻게 쓰는지 한국어 설명 1문장"
+    }
+  ]
+}
+
+words는 정확히 10개, expressions는 정확히 5개. 대화에 실제로 등장한 단어/표현 위주로 선택하되, 부족하면 관련 어휘를 추가하세요.`;
+
+    } else if (lang === "zh") {
+      userContent = `다음 중국어 대화에서 학습에 유용한 핵심 단어 10개와 핵심 표현 5개를 추출하세요.
+
+대화:
+${conversationText}
+
+반드시 아래 JSON 형식으로만 답하세요:
+{
+  "words": [
+    {
+      "word": "중국어 단어 (한자)",
+      "reading": "병음(성조 포함) — 예: 经济 → jīngjì, 吃饭 → chīfàn",
+      "pos": "품사 한국어(명사/동사/형용사/부사/기타)",
+      "translation": "한국어 뜻",
+      "example": "짧은 예문(중국어)"
+    }
+  ],
+  "expressions": [
+    {
+      "expression": "중국어 표현",
+      "translation": "한국어 번역",
+      "usage": "언제 어떻게 쓰는지 한국어 설명 1문장"
+    }
+  ]
+}
+
+words는 정확히 10개, expressions는 정확히 5개. 대화에 실제로 등장한 단어/표현 위주로 선택하되, 부족하면 관련 어휘를 추가하세요.`;
+
+    } else {
+      // Spanish
+      userContent = `다음 스페인어 대화에서 학습에 유용한 핵심 단어 10개와 핵심 표현 5개를 추출하세요.
 
 대화:
 ${conversationText}
@@ -87,6 +160,7 @@ ${conversationText}
 }
 
 words는 정확히 10개, expressions는 정확히 5개. 대화에 실제로 등장한 단어/표현 위주로 선택하되, 부족하면 관련 어휘를 추가하세요.`;
+    }
 
     const keys = [
       process.env.GROQ_API_KEY_2,
