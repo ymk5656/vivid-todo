@@ -46,7 +46,7 @@ Nivel: PRINCIPIANTE.
 
   intermediate: `
 Nivel: INTERMEDIO.
-- Responde con 2-3 oraciones de longitud media.
+- Responde con 1-2 oraciones de longitud media.
 - Usa vocabulario variado pero accesible.
 - REGLA OBLIGATORIA: Si el mensaje del usuario tiene 3 palabras o menos, SIEMPRE escribe primero: "¿Quisiste decir: «[oración completa sugerida]»?" — rellena los corchetes con la oración sugerida real.`,
 
@@ -90,7 +90,7 @@ const LEVEL_INSTRUCTIONS_JA: Record<string, string> = {
 
   intermediate: `
 レベル：中級。
-- 2〜3文で答えてください。
+- 1〜2文で答えてください。
 - 多様な語彙を使い、一般的な漢字も使用してください。
 - OBLIGATORY RULE: ユーザーのメッセージが3語以下なら、必ず最初に「もしかして：「[完全な文の提案]」と言いたかったですか？」と書いてください。`,
 
@@ -134,7 +134,7 @@ Level: BEGINNER.
 
   intermediate: `
 Level: INTERMEDIATE.
-- Respond with 2-3 medium-length sentences.
+- Respond with 1-2 medium-length sentences.
 - Use varied but accessible vocabulary.
 - OBLIGATORY RULE: If the user's message is 3 words or fewer, ALWAYS write first: "Did you mean: «[complete suggested sentence]»?" — fill in the brackets with the actual suggested sentence.`,
 
@@ -177,7 +177,7 @@ const LEVEL_INSTRUCTIONS_ZH: Record<string, string> = {
 
   intermediate: `
 级别：中级。
-- 用2-3句中等长度的句子回答。
+- 用1-2句中等长度的句子回答。
 - 使用多样但易懂的词汇。
 - 重要规则：如果用户消息只有3个词或更少，请务必先写："你是想说：「[完整句子建议]」吗？"`,
 
