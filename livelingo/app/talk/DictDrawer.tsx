@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { SRSItem } from "../utils/srsHelper";
 
 interface Meaning {
   definition: string;
@@ -32,7 +33,34 @@ export default function DictDrawer({ open, onClose, pendingWord, searchKey = 0, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<string[]>([]);
+  const [saved, setSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSaveWord = () => {
+    if (!entry) return;
+    try {
+      const raw = localStorage.getItem("livelingo_srs_items");
+      let items: SRSItem[] = raw ? JSON.parse(raw) : [];
+      const exists = items.some(it => it.text === entry.word && it.dialect === dialect);
+      if (!exists) {
+        const newItem: SRSItem = {
+          id: Date.now().toString(),
+          type: "word",
+          text: entry.word,
+          translation: entry.translation,
+          reading: entry.pronunciation,
+          dialect: dialect,
+          next_review_at: new Date().toISOString(),
+          easiness_factor: 2.5,
+          interval_days: 0,
+          repetitions: 0
+        };
+        localStorage.setItem("livelingo_srs_items", JSON.stringify([newItem, ...items]));
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {}
+  };
 
   const search = useCallback(
     async (q: string) => {
@@ -50,6 +78,7 @@ export default function DictDrawer({ open, onClose, pendingWord, searchKey = 0, 
         const data = (await res.json()) as DictEntry & { error?: string };
         if (data.error) { setError(data.error); return; }
         setEntry(data);
+        setSaved(false);
         setHistory((prev) =>
           [trimmed, ...prev.filter((h) => h !== trimmed)].slice(0, 8)
         );
@@ -200,6 +229,19 @@ export default function DictDrawer({ open, onClose, pendingWord, searchKey = 0, 
                   <p className="text-xs text-gray-400 leading-relaxed">{m.example_ko}</p>
                 </div>
               ))}
+
+              {/* Save to SRS Button */}
+              <button
+                onClick={handleSaveWord}
+                disabled={saved}
+                className={`w-full mt-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg ${
+                  saved 
+                    ? "bg-emerald-600/30 text-emerald-400 border border-emerald-500/50" 
+                    : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20"
+                }`}
+              >
+                {saved ? "✓ 단어장에 저장됨" : "📚 내 단어장에 추가"}
+              </button>
             </div>
           )}
 

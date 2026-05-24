@@ -1,3 +1,49 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-gray-900/60 backdrop-blur-xl border border-white/10 shadow-2xl;
+  }
+  .glass-panel-light {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-lg;
+  }
+  .animate-gradient {
+    background-size: 300%;
+    animation: animatedgradient 15s ease infinite alternate;
+  }
+  .animate-waveform {
+    animation: waveform 1s infinite alternate ease-in-out;
+  }
+}
+
+@keyframes animatedgradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes waveform {
+  0% { transform: scaleY(0.4); opacity: 0.6; }
+  100% { transform: scaleY(1.2); opacity: 1; }
+}
+
+/* Custom Scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-700/50 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-600;
+}
+
+body {
+  @apply text-gray-100 bg-[#0B0C10];
+}
