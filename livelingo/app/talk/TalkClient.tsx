@@ -136,7 +136,8 @@ function SpeechText({
           tok.start < highlight.start + highlight.len &&
           tokEnd > highlight.start;
         const isWord = /\S/.test(tok.value);
-        const hlCls = isHighlighted ? "bg-yellow-300 text-gray-900 rounded-md px-1 shadow-[0_0_8px_rgba(253,224,71,0.6)] font-bold transition-all" : "";
+        // font-bold와 가로 패딩(px-1)을 제거하여 렌더링 시 글자가 좌우로 움직이는(밀리는) 현상을 방지
+        const hlCls = isHighlighted ? "bg-yellow-400/90 text-gray-900 rounded-sm shadow-[0_0_8px_rgba(250,204,21,0.6)] transition-colors" : "";
 
         if (isWord && onWordClick) {
           return (
@@ -252,17 +253,17 @@ export default function TalkClient() {
 
   // Activity logic: reset inactivity timer on input or listening
   useEffect(() => {
-    if (input.length > 0 || listening || shadowListening) {
+    if (input.length > 0 || listening || shadowListening || shadowOpen || ttsLoading !== null) {
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
         inactivityTimerRef.current = null;
       }
-    } else if (messages.length > 0 && !loading && !summaryOpen && !dictOpen && !shadowOpen) {
+    } else if (messages.length > 0 && !loading && !summaryOpen && !dictOpen && !shadowOpen && ttsLoading === null) {
       if (!inactivityTimerRef.current) {
         inactivityTimerRef.current = setTimeout(() => sendProactiveRef.current("followup"), 50000);
       }
     }
-  }, [input, listening, shadowListening, messages.length, loading, summaryOpen, dictOpen, shadowOpen]);
+  }, [input, listening, shadowListening, shadowOpen, ttsLoading, messages.length, loading, summaryOpen, dictOpen]);
 
   useEffect(() => {
     if (summaryOpen && inactivityTimerRef.current) {
