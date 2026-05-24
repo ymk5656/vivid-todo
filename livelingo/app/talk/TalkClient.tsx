@@ -808,7 +808,7 @@ export default function TalkClient() {
         />
       )}
 
-      <div className="sticky bottom-0 z-10 px-4 pt-3 pb-6 glass-panel-light !bg-gray-950/80 border-t border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+      <div className="sticky bottom-0 z-10 px-4 pt-3 pb-1 glass-panel-light !bg-gray-950/80 border-t border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
         <div className="flex items-center gap-2.5">
           <input
             type="text"
