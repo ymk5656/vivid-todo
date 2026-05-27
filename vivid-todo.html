@@ -102,6 +102,121 @@
       opacity: 0.6;
     }
 
+    /* ── Search bar ─────────────────────────── */
+    .search-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      padding: 14px 18px;
+      margin-bottom: 20px;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .search-engine-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      border-radius: var(--radius);
+      padding: 8px 10px;
+      font-family: 'Karla', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color var(--t), color var(--t), background var(--t);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .search-engine-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .search-engine-btn .engine-icon {
+      font-size: 15px;
+      line-height: 1;
+    }
+    .engine-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      z-index: 100;
+      min-width: 130px;
+      overflow: hidden;
+      display: none;
+    }
+    .engine-dropdown.open { display: block; }
+    .engine-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      font-family: 'Karla', sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: background var(--t);
+    }
+    .engine-option:hover { background: var(--accent-light); }
+    .engine-option.active {
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .engine-option .engine-option-icon { font-size: 15px; }
+
+    #searchInput {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      border-radius: var(--radius);
+      padding: 9px 14px;
+      font-family: 'Karla', sans-serif;
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color var(--t), box-shadow var(--t);
+    }
+    #searchInput::placeholder { color: var(--text-muted); }
+    #searchInput:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(200,75,49,0.1);
+    }
+
+    #searchBtn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 9px 18px;
+      font-family: 'Karla', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--t), box-shadow var(--t), transform var(--t);
+      flex-shrink: 0;
+    }
+    #searchBtn:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 14px rgba(200,75,49,0.28);
+      transform: translateY(-1px);
+    }
+    #searchBtn:active { transform: translateY(0); box-shadow: none; }
+
     /* ── Input card ──────────────────────────── */
     .input-card {
       background: var(--bg-card);
@@ -354,6 +469,27 @@
       <div class="divider"><div class="divider-dot"></div></div>
     </header>
 
+    <!-- Search bar -->
+    <div class="search-card">
+      <div class="search-row">
+        <button class="search-engine-btn" id="engineBtn" aria-label="검색 엔진 선택" type="button">
+          <span class="engine-icon" id="engineIcon">🔍</span>
+          <span id="engineLabel">Google</span>
+          <span style="font-size:10px;opacity:0.6;margin-left:2px;">▾</span>
+          <div class="engine-dropdown" id="engineDropdown">
+            <div class="engine-option active" data-engine="google">
+              <span class="engine-option-icon">🌐</span> Google
+            </div>
+            <div class="engine-option" data-engine="naver">
+              <span class="engine-option-icon">🟢</span> Naver
+            </div>
+          </div>
+        </button>
+        <input id="searchInput" type="text" placeholder="검색어를 입력하세요…" autocomplete="off">
+        <button id="searchBtn" type="button">검색</button>
+      </div>
+    </div>
+
     <div class="input-card">
       <div class="input-row">
         <input id="taskInput" type="text" placeholder="What needs to be done?">
@@ -511,7 +647,75 @@
       renderTasks();
     }
 
+    // ── Search engine logic ───────────────────────────────────────────────────
+
+    const SEARCH_ENGINE_KEY = 'vivid-search-engine';
+    const SEARCH_ENGINES = {
+      google: {
+        label: 'Google',
+        icon: '🌐',
+        url: 'https://www.google.com/search?q='
+      },
+      naver: {
+        label: 'Naver',
+        icon: '🟢',
+        url: 'https://search.naver.com/search.naver?query='
+      }
+    };
+
+    let currentEngine = localStorage.getItem(SEARCH_ENGINE_KEY) || 'google';
+
+    function updateEngineUI() {
+      const engine = SEARCH_ENGINES[currentEngine] || SEARCH_ENGINES.google;
+      document.getElementById('engineIcon').textContent = engine.icon;
+      document.getElementById('engineLabel').textContent = engine.label;
+
+      document.querySelectorAll('.engine-option').forEach(opt => {
+        opt.classList.toggle('active', opt.dataset.engine === currentEngine);
+      });
+    }
+
+    function doSearch() {
+      const query = document.getElementById('searchInput').value.trim();
+      if (!query) return;
+      const engine = SEARCH_ENGINES[currentEngine] || SEARCH_ENGINES.google;
+      window.open(engine.url + encodeURIComponent(query), '_blank', 'noopener');
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+      updateEngineUI();
+
+      const engineBtn = document.getElementById('engineBtn');
+      const dropdown  = document.getElementById('engineDropdown');
+      const searchBtn = document.getElementById('searchBtn');
+      const searchInput = document.getElementById('searchInput');
+
+      // Toggle dropdown
+      engineBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', () => dropdown.classList.remove('open'));
+
+      // Select engine
+      document.querySelectorAll('.engine-option').forEach(opt => {
+        opt.addEventListener('click', (e) => {
+          e.stopPropagation();
+          currentEngine = opt.dataset.engine;
+          localStorage.setItem(SEARCH_ENGINE_KEY, currentEngine);
+          updateEngineUI();
+          dropdown.classList.remove('open');
+        });
+      });
+
+      // Search on button click or Enter
+      searchBtn.addEventListener('click', doSearch);
+      searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') doSearch();
+      });
+
       loadTasks();
       addBtn.addEventListener('click', addTask);
       taskInput.addEventListener('keypress', (e) => {
