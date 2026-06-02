@@ -1,0 +1,42 @@
+{
+  "name": "music-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
+    "@radix-ui/react-slider": "^1.3.6",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@supabase/supabase-js": "^2.106.2",
+    "@tanstack/react-query": "^5.100.14",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "groq-sdk": "^1.2.1",
+    "lucide-react": "^1.17.0",
+    "next": "16.2.6",
+    "opensheetmusicdisplay": "^1.9.9",
+    "pdfjs-dist": "^5.7.284",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-dropzone": "^15.0.0",
+    "tailwind-merge": "^3.6.0",
+    "tone": "^15.1.22",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "playwright": "^1.60.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

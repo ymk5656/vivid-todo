@@ -1,0 +1,11 @@
+ 방안 A — 동기 포워딩 (현재 구조 그대로) 🟢 최소 변경
+
+  브라우저 → Vercel route.ts → Railway Audiveris → XML 즉시 반환
+  - Supabase: 사용 안 함. Stateless.
+  - 할 일: Dockerfile $PORT 수정 → Railway 배포 → OMR_API_URL 환경변수 연결. 끝.
+  - 장점: 가장 빠르고 단순. 코드 거의 안 건드림.
+  - 치명적 한계: Vercel 타임아웃. 단순한 악보(10~30초)면 OK, 복잡한 악보는 끊김.
+  - 언제: 일단 동작 확인 / 데모 / Vercel Pro로 maxDuration 60~300초 설정 가능할 때.
+
+  ▎ 보강책: route.ts에 export const maxDuration = 300; (Vercel Pro 필요) + 클라이언트에서 직접 Railway 호출(Vercel 우회)도 가능. 단 이러면 Railway URL/CORS
+  ▎ 노출.
