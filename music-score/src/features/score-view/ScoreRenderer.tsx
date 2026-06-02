@@ -6,6 +6,9 @@ import { usePlayerStore } from '@/store/playerStore';
 
 interface RegionRect { left: number; top: number; width: number; height: number; }
 
+// OSMD-unit -> SVG user-coordinate factor (unitInPixels, a stable OSMD constant).
+const UNIT = 10;
+
 interface ScoreRendererProps {
   xmlUrl: string;
   currentMeasure?: number;
@@ -36,18 +39,28 @@ export default function ScoreRenderer({ xmlUrl, currentMeasure = 0, title }: Sco
   const [layoutRev, setLayoutRev] = useState(0);
   const dragRef = useRef<{ start: number } | null>(null);
 
+  // OSMD draws into an <svg> whose coordinate system is OSMD-units * unitInPixels(10),
+  // then scaled to the screen via a viewBox + zoom. The viewBox scale is NOT simply
+  // `10 * zoom` (it varies with container width / device), so we read the live
+  // screen transform matrix (getScreenCTM) instead of assuming a constant factor.
+  // This mirrors how the cursor overlay measures real DOM rects and works on every
+  // device.
+  const getSvgCTM = useCallback((): DOMMatrix | null => {
+    const svg = containerRef.current?.querySelector('svg') as SVGSVGElement | null;
+    if (!svg || typeof svg.getScreenCTM !== 'function') return null;
+    return svg.getScreenCTM();
+  }, []);
+
   // Map a screen point to the 1-based measure number under it, using OSMD's
-  // graphical measure bounding boxes. OSMD positions are in abstract units;
-  // screen px = unit * unitInPixels(10) * zoom.
+  // graphical measure bounding boxes (in OSMD units). We invert the SVG screen
+  // matrix to convert the click into OSMD-unit space.
   const pointToMeasureNumber = useCallback((clientX: number, clientY: number): number | null => {
     const osmd = osmdRef.current;
-    const container = containerRef.current;
-    if (!osmd?.GraphicSheet || !container) return null;
-    const rect = container.getBoundingClientRect();
-    const zoom = osmd.zoom || 1;
-    const f = 10 * zoom;
-    const ux = (clientX - rect.left) / f;
-    const uy = (clientY - rect.top) / f;
+    const ctm = getSvgCTM();
+    if (!osmd?.GraphicSheet || !ctm) return null;
+    const inv = ctm.inverse();
+    const ux = (inv.a * clientX + inv.c * clientY + inv.e) / UNIT;
+    const uy = (inv.b * clientX + inv.d * clientY + inv.f) / UNIT;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const list: any[][] = osmd.GraphicSheet.MeasureList || [];
     let best: number | null = null;
@@ -71,20 +84,29 @@ export default function ScoreRenderer({ xmlUrl, currentMeasure = 0, title }: Sco
       }
     }
     return best;
-  }, []);
+  }, [getSvgCTM]);
 
   // Recompute the highlight rectangles for the active (preview or committed) range.
   // A range can span multiple systems/lines, so we emit one rect per y-band.
   const recomputeRegions = useCallback((range: { start: number; end: number } | null) => {
     const osmd = osmdRef.current;
     const container = containerRef.current;
-    if (!range || !osmd?.GraphicSheet || !container) { setRegionRects([]); return; }
-    const zoom = osmd.zoom || 1;
-    const f = 10 * zoom;
-    const offL = container.offsetLeft;
-    const offT = container.offsetTop;
+    const wrapper = container?.parentElement;
+    const ctm = getSvgCTM();
+    if (!range || !osmd?.GraphicSheet || !container || !wrapper || !ctm) { setRegionRects([]); return; }
+    const wRect = wrapper.getBoundingClientRect();
+    // OSMD-unit point -> wrapper-relative px, via the SVG's live screen matrix.
+    const toPx = (ux: number, uy: number) => {
+      const x = ux * UNIT, y = uy * UNIT;
+      return {
+        x: ctm.a * x + ctm.c * y + ctm.e - wRect.left,
+        y: ctm.b * x + ctm.d * y + ctm.f - wRect.top,
+      };
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const list: any[][] = osmd.GraphicSheet.MeasureList || [];
+    // Group measures into y-bands (one rect per system/line) in unit space, which
+    // is resolution-independent; convert to px only at the end.
     const bands: { yc: number; x0: number; x1: number; y0: number; y1: number }[] = [];
     for (const staffMeasures of list) {
       for (const gm of staffMeasures) {
@@ -110,13 +132,12 @@ export default function ScoreRenderer({ xmlUrl, currentMeasure = 0, title }: Sco
         }
       }
     }
-    setRegionRects(bands.map((b) => ({
-      left: offL + b.x0 * f,
-      top: offT + b.y0 * f,
-      width: (b.x1 - b.x0) * f,
-      height: (b.y1 - b.y0) * f,
-    })));
-  }, []);
+    setRegionRects(bands.map((b) => {
+      const tl = toPx(b.x0, b.y0);
+      const br = toPx(b.x1, b.y1);
+      return { left: tl.x, top: tl.y, width: br.x - tl.x, height: br.y - tl.y };
+    }));
+  }, [getSvgCTM]);
 
   // Pointer drag-select handlers (touch + mouse). Only active in select mode so
   // they never hijack normal vertical scrolling of the score.
