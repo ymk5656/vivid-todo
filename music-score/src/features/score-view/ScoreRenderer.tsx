@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Repeat, Check } from 'lucide-react';
+import { Repeat, Check, X } from 'lucide-react';
 import { usePlayerStore } from '@/store/playerStore';
 
 interface RegionRect { left: number; top: number; width: number; height: number; }
@@ -27,6 +27,7 @@ export default function ScoreRenderer({ xmlUrl, currentMeasure = 0, title }: Sco
   const loopRange = usePlayerStore((s) => s.loopRange);
   const loopEnabled = usePlayerStore((s) => s.loopEnabled);
   const setLoopRange = usePlayerStore((s) => s.setLoopRange);
+  const clearLoop = usePlayerStore((s) => s.clearLoop);
 
   // 구간 선택(loop range drag-select) state.
   const [selectMode, setSelectMode] = useState(false);
@@ -409,7 +410,18 @@ export default function ScoreRenderer({ xmlUrl, currentMeasure = 0, title }: Sco
         </div>
       )}
       {/* 반복 구간 선택 토글 — 켜면 악보 위에서 드래그해 구간을 지정 */}
-      <div className="flex items-center justify-end mb-2">
+      <div className="flex items-center justify-end gap-2 mb-2">
+        {/* 지정된 반복 구간이 있으면 해제 버튼을 노출 */}
+        {loopRange && (
+          <button
+            onClick={() => { clearLoop(); setSelectMode(false); setPreviewRange(null); dragRef.current = null; }}
+            className="flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2.5 py-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title={`반복 구간 해제 (${loopRange.start === loopRange.end ? `${loopRange.start}마디` : `${loopRange.start}–${loopRange.end}마디`})`}
+          >
+            <X className="h-4 w-4" />
+            <span>구간 해제</span>
+          </button>
+        )}
         <button
           onClick={() => { setSelectMode((v) => !v); setPreviewRange(null); dragRef.current = null; }}
           className={
