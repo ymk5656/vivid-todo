@@ -152,20 +152,12 @@ for f in sorted(os.listdir(ZIP_DIR)):
     if f.endswith('.docx'):
         key = content_key(path)
         raw = read_docx_all(path)
-        if has_numbered_sections(raw):
-            sub_poems = extract_numbered_poems(raw)
-            for sub_title, sub_content in sub_poems:
-                sub_title = clean_title(sub_title)
-                if sub_title and sub_title not in poems:
-                    poems[sub_title] = sub_content
-            if key: zip_keys[key] = zt
-        else:
-            cl = []
-            for para in raw: cl.extend(split_para(para)); cl.append('')
-            if key: zip_keys[key] = zt
-            zt_clean = clean_title(zt)
-            if zt_clean and zt_clean not in poems:
-                poems[zt_clean] = cl
+        cl = []
+        for para in raw: cl.extend(split_para(para)); cl.append('')
+        if key: zip_keys[key] = zt
+        zt_clean = clean_title(zt)
+        if zt_clean and zt_clean not in poems:
+            poems[zt_clean] = cl
     elif f.endswith('.hwp'):
         key = hwp_key(path)
         hl = read_hwp_lines(path)
@@ -185,11 +177,12 @@ for f in sorted(os.listdir(UPLOAD_DIR)):
     raw = read_docx_all(path)
     if not raw: continue
     if has_numbered_sections(raw):
-        sub_poems = extract_numbered_poems(raw)
-        for sub_title, sub_content in sub_poems:
-            sub_title = clean_title(sub_title)
-            if sub_title and sub_title not in poems:
-                poems[sub_title] = sub_content
+        title, content = extract_upload_title(f, raw)
+        title = clean_title(title)
+        if title and title not in poems:
+            cl = []
+            for para in raw: cl.extend(split_para(para)); cl.append('')
+            poems[title] = cl
         continue
     title, content = extract_upload_title(f, raw)
     title = clean_title(title)
