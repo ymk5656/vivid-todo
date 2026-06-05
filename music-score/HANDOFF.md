@@ -1,6 +1,6 @@
 # HANDOFF — music-platform
 
-_Last updated: 2026-06-01. Branch `master`. Latest commit `c098eab` (+ uncommitted OMR-accuracy changes, see "Current Progress" items 3–4)._
+_Last updated: 2026-06-05. Branch `master`. Latest commit `625430e` (loop-playback feature work, committed + pushed + deployed). Earlier OMR-accuracy changes — Current Progress items 2–5 — are also committed/deployed. Item 7 (OpenCV phone-photo normalization, all in `audiveris-omr/`) is **deployed to Railway & verified** but **not yet git-committed**._
 
 ## Goal
 
@@ -12,11 +12,18 @@ fixing **mobile playback/UX** issues.
 
 ## Deployment & Repo Constraints (READ FIRST)
 
-- **Standalone git repo** at `E:\project\music-platform`, branch `master`,
-  **NO git remote**. Do not `git push` — there's nowhere to push.
-- **Deploy via Vercel CLI**, not git: `vercel deploy --prod --yes`.
-  Prod alias: **https://music-platform-pi.vercel.app**.
-  This fix→deploy pattern is user-approved; briefly confirm each prod deploy.
+- **Git repo is the workspace root `E:\project`** (music-score is a subdir of a
+  multi-project workspace), branch `master`. There **IS** a remote now:
+  `origin` = `https://github.com/ymk5656/vivid-todo.git`, and `master` tracks
+  `origin/master`. The `git push` flow is live and user-approved. (This reverses
+  the old "NO git remote" note — that was true in a previous session.) Run git
+  commands from `E:\project`; the music-score commits so far are cleanly scoped
+  to `music-score/` paths only — keep them that way (don't bundle other projects'
+  changes into a music-score commit).
+- **Deploy via Vercel CLI** (separate from git push): `vercel deploy --prod --yes`
+  from `E:\project\music-score`. Prod alias: **https://music-score-sigma.vercel.app**
+  (Vercel project **`music-score`**). The fix→deploy pattern is user-approved;
+  briefly confirm each prod deploy. Railway (OMR server) deploys via `railway up`.
 - **Next.js 16.2.x (App Router, Turbopack).** This is NOT the Next.js in your
   training data — read `node_modules/next/dist/docs/` before writing Next code
   (per AGENTS.md). `npx next build` does full TS typecheck + static gen.
@@ -165,6 +172,90 @@ still try Railway server-side for sub-4.5MB files, then Groq).
      back with `X-Omr-Mode: bin`. If it still fails, the now-untruncated (1500-char)
      client error log shows the exact per-pass Audiveris reason.
 
+6. **(committed + pushed + deployed, 2026-06-02 session) — Loop playback (반복
+   재생) + mixer-hide + clear-region.** Distinct from the OMR work above; this is
+   the playback/UX side.
+   - **Loop drag-select** (`src/features/score-view/ScoreRenderer.tsx`): a
+     **"구간 선택"** toggle puts the score into select mode; the user drags from a
+     start measure to an end measure and the range is highlighted as a
+     semi-transparent yellow band (one rect per system/line, computed from OSMD
+     `GraphicSheet.MeasureList` bounding boxes — screen px = `unit * 10 * zoom`).
+     Pointer handlers (touch+mouse) only fire in select mode so they never hijack
+     scroll. On pointer-up the range commits via `setLoopRange` (auto-enables
+     loop) and select mode turns off. A **"구간 해제"** button (X icon) appears
+     next to the toggle whenever a `loopRange` exists → calls `clearLoop()`.
+     Region rects recompute on `previewRange`/`loopRange`/layout change and via a
+     `ResizeObserver` (OSMD `autoResize` reflows on resize → bump `layoutRev`).
+   - **Loop state** in `src/store/playerStore.ts`: `loopRange {start,end}|null`,
+     `loopEnabled`, `setLoopRange` (commits + enables), `toggleLoopEnabled`,
+     `clearLoop` (nulls range + disables). Toolbar (`src/components/Toolbar.tsx`)
+     has a Repeat toggle (disabled until a range exists) + a clear chip showing
+     `{start}–{end}마디`.
+   - **Audio loop** is handled in `MusicPlayer.tsx`'s single audio-clock engine:
+     at the range end the playhead resets to the range start (per-measure timing
+     `qnSec = 60/bpm`, so tempo changes time-stretch without pitch shift — the
+     sampled-synth design already satisfied the "Time-Stretching 연동" requirement
+     for free).
+   - **Mixer hidden during playback** (`src/features/score-view/ScoreViewPanel.tsx`):
+     `{playbackState !== 'playing' && <PartMixer />}` — when the score is playing,
+     show only the score and hide the Mute/Solo panel.
+   - **Status: committed (`625430e` is the latest, the clear-region button;
+     `65a6578` was the loop+mixer feature), pushed to `origin/master`, and
+     deployed to Vercel prod (READY).** Verified locally (`/` and `/omr` → 200,
+     typecheck clean).
+
+7. **(this session — OpenCV phone-photo normalization) DEPLOYED & VERIFIED
+   2026-06-05 via `railway up` (image rebuilt with opencv, deploy complete,
+   `/health` 200). Regression gate PASSED: page1.png 53n/32m, page2.png 74n/32m,
+   both via `photo[flat]` at 2480px — no clean-scan regression.** Items 2–5 fixed resolution,
+   binarization, orientation, and added a binarize fallback, yet real phone photos
+   still mis-read pitch / recognize only partially. Remaining root cause: **photo
+   geometry + illumination** — Audiveris assumes a flat, orthogonal, evenly-lit
+   page; perspective skew shifts staff-line positions (→ wrong pitch) and shadows/
+   curl make it abandon systems (→ partial). Nothing in the pipeline corrected that
+   (OpenCV wasn't even a dependency). New work — **all in `audiveris-omr/`, none in
+   music-score**:
+   - **`requirements.txt`:** added `opencv-python-headless==4.10.0.84` (headless →
+     no libGL/X11, and `libglib2.0-0` is already in the Dockerfile, so **no
+     Dockerfile change needed** — confirmed: it installed cleanly on `railway up`).
+     This forced the Docker rebuild on deploy.
+   - **`server.py`:** new `photo_preprocess(img)` → normalized grayscale PIL. Pipeline:
+     (1) **4-point page detection + perspective warp** (detect on a ~1500px copy,
+     apply to full-res) — Canny→contours→`approxPolyDP`, guarded (convex quad,
+     50–99% of frame, aspect 0.4–2.5) or it's rejected; (2) **deskew fallback** when
+     no clean quad (Hough median angle, clamp ±15°, dead-zone 0.3°); (3)
+     **illumination flatten** (divide by large-σ Gaussian background → removes
+     shadows, keeps thin staff lines); (4) **medianBlur(3)** denoise. Contract is
+     *"improve or pass through"* — every geometric step falls back to the original
+     grayscale on any suspicious detection, so a misfire can't break a clean scan.
+   - The `omr()` retry loop is restructured from `modes` into an ordered **renderer
+     list**: **`photo` → `gray` → `bin`**, each tried across as-is/rot90/rot270,
+     returning on the first `<note>`. `photo` is **first** so a phone photo can't get
+     a wrong/partial read from the plain grayscale pass and short-circuit the loop;
+     `gray` remains right behind it as the clean-scan safety net. Adds response
+     header **`X-OMR-Preprocess`** (e.g. `photo[warp,flat]`). `cv2` import is guarded
+     (`HAS_CV2`) — if opencv is somehow missing, the `photo` renderer is skipped, not
+     a crash. A render exception now logs + continues instead of 500-ing.
+   - **`_omrtest/measure.py`** (new harness): POSTs every image in `_omrtest/` to
+     `OMR_TARGET` (Railway URL or `http://localhost:8000`), prints notes/measures/
+     seconds + the engine headers, and **regression-gates page1.png ≥ 53 notes / 32
+     measures**. Manual step for the user: drop real `photoN.jpg` files into
+     `_omrtest/` to measure actual phone photos.
+   - **Latency note:** worst case is now 3 renderers × 3 orientations = 9 Audiveris
+     passes, but the success path is unaffected — photos win on `photo`/as-is, clean
+     scans on `photo` or `gray`/as-is, both returning on the first pass. Only a
+     genuinely-unreadable image walks the full grid (same property as before, one
+     extra renderer).
+   - **Verified after deploy (2026-06-05):** `OMR_TARGET=https://audiveris-omr-
+     production-6f4e.up.railway.app python _omrtest/measure.py` → page1.png 53n/32m,
+     page2.png 74n/32m, no regressions. Clean scans only exercise the `flat` step
+     (`photo[flat]`); to see perspective `warp` fire, the user must drop real phone
+     photos as `_omrtest/photoN.jpg` and re-run — watch for `X-OMR-Preprocess:
+     photo[warp,flat]` and higher note counts. Audiveris can't run on Windows, so
+     verification is Railway- or Linux-container-only. **Phase 2 (later):** tune
+     Audiveris CLI options, but only after verifying flag names in-container
+     (`Audiveris -help`).
+
 ## What Worked
 
 - **Filling the 4.5MB budget with max quality** instead of a fixed low cap.
@@ -184,8 +275,17 @@ still try Railway server-side for sub-4.5MB files, then Groq).
 
 ## Next Steps
 
-1. **Deploy the accuracy changes**: `railway up` (server.py) then
-   `vercel deploy --prod --yes` (frontend). Confirm with the user before each.
+0. **Loop feature (item 6) — still TO VERIFY interactively in the browser.** Code
+   committed/pushed/deployed and serves 200, but the actual drag-select → loop
+   playback wasn't click-tested this session. Open the prod app or local dev,
+   click 구간 선택, drag across a few measures, press play, and confirm: (a) the
+   range highlights, (b) playback loops start→end seamlessly, (c) 구간 해제 clears
+   it, (d) the Mute/Solo mixer disappears while playing. Watch for region-rect
+   misalignment after resize / phone 0.5 zoom.
+1. **(OMR) Verify the binarization fallback (item 5)** — re-upload the original
+   4000×2252 landscape photo that failed all orientations; success should return
+   `X-Omr-Mode: bin`. If it still fails, the now-untruncated (1500-char) client
+   error log shows the exact per-pass Audiveris reason.
 2. **Verify on a real phone** with an actual sheet-music photo/scan: with
    Audiveris now the default, does recognition match the original (pitches/key)?
    Check the result engine badge reads **"Audiveris"**, not "Groq".
