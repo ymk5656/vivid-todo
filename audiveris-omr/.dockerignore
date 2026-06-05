@@ -1,0 +1,7 @@
+build*.log
+docker-compose.yml
+*.md
+.git
+__pycache__
+*.pyc
+_omrtest

@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+build*.log
+_omrtest/_o.txt
+.env
+.env.local

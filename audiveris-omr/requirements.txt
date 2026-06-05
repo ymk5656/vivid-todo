@@ -1,0 +1,8 @@
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+Pillow==11.2.1
+numpy>=1.24
+# Headless build (no X11/GUI deps). Used for phone-photo document normalization
+# (perspective correction + illumination flattening) before handing to Audiveris.
+opencv-python-headless==4.10.0.84
