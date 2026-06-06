@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="경주 수오재 30주년 기념 이정신 초대 개인전 — REJUVENATION | 피어나다 (2026. 6. 12 – 7. 10)">
+  <meta name="theme-color" content="#0C0906">
+  <meta property="og:title" content="REJUVENATION | 피어나다 — 이정신 개인전">
+  <meta property="og:description" content="경주 수오재 30주년 기념 이정신 초대 개인전 2026. 6. 12 – 7. 10">
+  <title>REJUVENATION | 피어나다 — Lee Jung Shin</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Noto+Serif+KR:wght@300;400;500&family=Karla:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ══════════════════════════════════════════════
+       TOKENS
+    ══════════════════════════════════════════════ */
+    :root {
+      --bg:             #F8F2E6;
+      --bg-alt:         #EDE5D4;
+      --bg-dark:        #0C0906;
+      --bg-dark-mid:    #120E09;
+      --bg-card:        #FFFFFF;
+      --text-primary:   #1C130A;
+      --text-secondary: #5A4835;
+      --text-muted:     #9A8A72;
+      --text-light:     #F0E6D2;
+      --text-light-dim: #B4A48C;
+      --gold:           #8B6812;
+      --gold-warm:      #C4922A;
+      --gold-dim:       rgba(139,104,18,0.35);
+      --lacquer:        #8C2B2B;
+      --border:         #DDD0BA;
+      --border-dark:    #221A0E;
+      --shadow-sm:      0 2px 8px rgba(28,19,10,0.07);
+      --shadow-md:      0 6px 32px rgba(28,19,10,0.10);
+      --shadow-lg:      0 16px 64px rgba(0,0,0,0.55);
+      --t:              280ms ease;
+      --t-slow:         600ms ease;
+    }
+
+    /* ══════════════════════════════════════════════
+       RESET
+    ══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: 'Karla', 'Noto Serif KR', sans-serif;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+
+    /* ══════════════════════════════════════════════
+       NAV
+    ══════════════════════════════════════════════ */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 200;
+      transition: background var(--t), border-color var(--t), backdrop-filter var(--t);
+    }
+    .nav.scrolled {
+      background: rgba(12, 9, 6, 0.88);
+      border-bottom: 1px solid var(--border-dark);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 18px 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-light);
+    }
+    .nav-brand-ko {
+      font-family: 'Noto Serif KR', serif;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+    }
+    .nav-sep {
+      width: 1px; height: 13px;
+      background: rgba(196,146,42,0.4);
+    }
+    .nav-brand-en { color: var(--gold-warm); letter-spacing: 0.22em; }
+    .nav-meta {
+      font-size: 11.5px;
+      color: rgba(176,160,136,0.7);
+      letter-spacing: 0.06em;
+    }
+
+    /* ══════════════════════════════════════════════
+       HERO  (dark, full-viewport)
+    ══════════════════════════════════════════════ */
+    .hero {
+      position: relative;
+      height: 100svh;
+      min-height: 620px;
+      background: var(--bg-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* paper grain on dark */
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ambient glow orbs */
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 {
+      width: 640px; height: 640px;
+      background: radial-gradient(circle, rgba(140,43,43,0.13) 0%, transparent 70%);
+      top: -180px; right: 0%;
+      animation: drift 20s ease-in-out infinite;
+    }
+    .orb-2 {
+      width: 440px; height: 440px;
+      background: radial-gradient(circle, rgba(196,146,42,0.09) 0%, transparent 70%);
+      bottom: -100px; left: 8%;
+      animation: drift 26s ease-in-out infinite reverse;
+    }
+    .orb-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(60,30,100,0.08) 0%, transparent 70%);
+      top: 30%; left: 40%;
+      animation: drift 16s ease-in-out infinite 4s;
+    }
+    @keyframes drift {
+      0%, 100% { transform: translate(0, 0); }
+      33%       { transform: translate(25px, -18px); }
+      66%       { transform: translate(-18px, 12px); }
+    }
+
+    /* hero layout — poster left, text right */
+    .hero-inner {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 36px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 72px;
+    }
+
+    .hero-poster {
+      width: clamp(200px, 22vw, 300px);
+      flex-shrink: 0;
+      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(196,146,42,0.18);
+      border-radius: 2px;
+      overflow: hidden;
+      opacity: 0;
+      animation: riseIn 1s cubic-bezier(0.22,1,0.36,1) 0.3s forwards;
+    }
+    .hero-poster img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .hero-text {
+      opacity: 0;
+      animation: riseIn 1s cubic-bezier(0.22,1,0.36,1) 0.55s forwards;
+    }
+    .hero-eyebrow {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--gold-warm);
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      display: block;
+      width: 32px; height: 1px;
+      background: var(--gold-warm);
+      opacity: 0.6;
+    }
+
+    .hero-title-en {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(3.4rem, 7vw, 6rem);
+      font-weight: 300;
+      letter-spacing: 0.14em;
+      color: var(--text-light);
+      line-height: 1;
+      display: block;
+    }
+    .hero-title-ko {
+      font-family: 'Noto Serif KR', serif;
+      font-size: clamp(1.5rem, 3.2vw, 2.5rem);
+      font-weight: 300;
+      color: var(--gold-warm);
+      letter-spacing: 0.28em;
+      display: block;
+      margin-top: 10px;
+    }
+
+    .hero-divider {
+      width: 56px;
+      height: 1px;
+      background: linear-gradient(to right, var(--gold-warm), transparent);
+      margin: 28px 0;
+      opacity: 0.6;
+    }
+
+    .hero-artist {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      font-weight: 400;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--text-light-dim);
+      margin-bottom: 20px;
+    }
+    .hero-date-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(196,146,42,0.3);
+      border-radius: 40px;
+      padding: 9px 22px;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      color: rgba(240,230,210,0.7);
+    }
+    .hero-date-badge .pip {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--gold-warm);
+      opacity: 0.5;
+    }
+
+    .hero-scroll {
+      position: absolute;
+      bottom: 36px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      animation: fadeIn 0.8s ease 1.4s forwards;
+    }
+    .hero-scroll span {
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(176,160,136,0.5);
+    }
+    .scroll-line {
+      width: 1px; height: 42px;
+      background: linear-gradient(to bottom, rgba(196,146,42,0.5), transparent);
+      animation: scrollBob 2.2s ease-in-out infinite;
+    }
+    @keyframes scrollBob {
+      0%, 100% { opacity: 0.5; transform: scaleY(1); transform-origin: top; }
+      50%       { opacity: 1;   transform: scaleY(0.75); transform-origin: top; }
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+
+    /* ══════════════════════════════════════════════
+       SECTION COMMON
+    ══════════════════════════════════════════════ */
+    .section { padding: 104px 0; }
+    .section-alt { background: var(--bg-alt); }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 36px;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 60px;
+    }
+    .eyebrow-bar {
+      width: 36px; height: 1px;
+      background: var(--gold);
+    }
+    .eyebrow-text {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    /* ══════════════════════════════════════════════
+       INVITATION
+    ══════════════════════════════════════════════ */
+    .invitation-wrap {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .invitation-headline {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.7rem, 3.5vw, 2.6rem);
+      font-weight: 400;
+      font-style: italic;
+      color: var(--text-primary);
+      line-height: 1.4;
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .invitation-body {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .invitation-body p {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 15.5px;
+      font-weight: 300;
+      line-height: 2.1;
+      color: var(--text-secondary);
+      text-align: justify;
+      word-break: keep-all;
+    }
+    .sign {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-muted);
+      text-align: right;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      letter-spacing: 0.05em;
+    }
+
+    /* ══════════════════════════════════════════════
+       EXHIBITION INFO
+    ══════════════════════════════════════════════ */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .info-cell {
+      padding: 40px 32px;
+      border-right: 1px solid var(--border);
+      background: var(--bg-card);
+      box-shadow: var(--shadow-sm);
+    }
+    .info-cell:last-child { border-right: none; }
+    .info-tag {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 14px;
+    }
+    .info-val {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-primary);
+      line-height: 1.65;
+    }
+    .info-sub {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+    .opening-pill {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 5px 13px;
+      border: 1px solid var(--gold-dim);
+      border-radius: 24px;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--gold);
+    }
+
+    /* ══════════════════════════════════════════════
+       WORKS GALLERY
+    ══════════════════════════════════════════════ */
+    .works-lead {
+      max-width: 560px;
+      margin-bottom: 64px;
+    }
+    .works-lead p {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 15px;
+      font-weight: 300;
+      line-height: 2;
+      color: var(--text-secondary);
+    }
+
+    /* mosaic-style grid */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-auto-rows: 220px;
+      gap: 4px;
+    }
+    .gcard { position: relative; overflow: hidden; background: var(--bg-dark-mid); cursor: pointer; }
+
+    .gcard:nth-child(1) { grid-column: span 7; grid-row: span 2; }
+    .gcard:nth-child(2) { grid-column: span 5; grid-row: span 1; }
+    .gcard:nth-child(3) { grid-column: span 5; grid-row: span 1; }
+    .gcard:nth-child(4) { grid-column: span 4; grid-row: span 1; }
+    .gcard:nth-child(5) { grid-column: span 4; grid-row: span 1; }
+    .gcard:nth-child(6) { grid-column: span 4; grid-row: span 1; }
+    .gcard:nth-child(7) { grid-column: span 5; grid-row: span 2; }
+    .gcard:nth-child(8) { grid-column: span 7; grid-row: span 2; }
+
+    /* placeholder gradients evoking the lacquer/cosmos palette */
+    .gcard:nth-child(1) .gimg { background: radial-gradient(ellipse at 65% 40%, #3B1F08 0%, #1D0E04 45%, #0C0906 100%); }
+    .gcard:nth-child(2) .gimg { background: radial-gradient(ellipse at 35% 55%, #291508 0%, #160A04 55%, #0C0906 100%); }
+    .gcard:nth-child(3) .gimg { background: radial-gradient(ellipse at 55% 35%, #221208 0%, #130904 60%, #0C0906 100%); }
+    .gcard:nth-child(4) .gimg { background: radial-gradient(ellipse at 50% 60%, #341A08 0%, #1A0C04 50%, #0C0906 100%); }
+    .gcard:nth-child(5) .gimg { background: radial-gradient(ellipse at 30% 40%, #1E1008 0%, #110804 60%, #0C0906 100%); }
+    .gcard:nth-child(6) .gimg { background: radial-gradient(ellipse at 70% 50%, #281408 0%, #160B04 55%, #0C0906 100%); }
+    .gcard:nth-child(7) .gimg { background: radial-gradient(ellipse at 40% 45%, #301808 0%, #180C04 50%, #0C0906 100%); }
+    .gcard:nth-child(8) .gimg { background: radial-gradient(ellipse at 60% 50%, #3A1E08 0%, #1C0E04 45%, #0C0906 100%); }
+
+    .gimg {
+      position: absolute;
+      inset: 0;
+      transition: transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94);
+    }
+    .gcard:hover .gimg { transform: scale(1.04); }
+
+    .gcard img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94);
+    }
+    .gcard:hover img { transform: scale(1.04); }
+
+    .goverlap {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(12,9,6,0.92) 0%, rgba(12,9,6,0.15) 55%, transparent 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 22px 24px;
+      opacity: 0;
+      transition: opacity var(--t);
+    }
+    .gcard:hover .goverlap { opacity: 1; }
+
+    .g-title {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 14.5px;
+      font-weight: 400;
+      color: var(--text-light);
+      margin-bottom: 4px;
+    }
+    .g-medium {
+      font-size: 11px;
+      color: rgba(176,160,136,0.7);
+      letter-spacing: 0.06em;
+    }
+
+    /* placeholder label when no image */
+    .gcard .placeholder-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(139,104,18,0.25);
+      pointer-events: none;
+    }
+
+    /* ══════════════════════════════════════════════
+       VENUE — SUOJAE
+    ══════════════════════════════════════════════ */
+    .venue { background: var(--bg-dark); color: var(--text-light); }
+    .venue .eyebrow-bar { background: var(--gold-warm); }
+    .venue .eyebrow-text { color: var(--gold-warm); }
+
+    .venue-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: center;
+    }
+    .venue-image-wrap {
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      background: var(--bg-dark-mid);
+      box-shadow: var(--shadow-lg);
+    }
+    .venue-image-wrap img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    .venue-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      color: rgba(139,104,18,0.25);
+    }
+    .venue-placeholder .ph-icon {
+      font-size: 32px;
+      opacity: 0.4;
+    }
+    .venue-placeholder span {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .venue-copy h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+      font-weight: 300;
+      line-height: 1.35;
+      color: var(--text-light);
+      margin-bottom: 24px;
+    }
+    .venue-copy h2 em {
+      font-style: italic;
+      color: var(--gold-warm);
+    }
+    .venue-copy p {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 14.5px;
+      font-weight: 300;
+      line-height: 2;
+      color: var(--text-light-dim);
+      word-break: keep-all;
+    }
+    .venue-hanja {
+      display: inline-block;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      color: var(--gold-warm);
+      border: 1px solid rgba(196,146,42,0.3);
+      padding: 4px 14px;
+      margin-top: 20px;
+    }
+
+    /* ══════════════════════════════════════════════
+       BEHANCE CTA
+    ══════════════════════════════════════════════ */
+    .behance-wrap {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .behance-kicker {
+      font-size: 10.5px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 20px;
+    }
+    .behance-heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.9rem, 4vw, 3rem);
+      font-weight: 300;
+      color: var(--text-primary);
+      line-height: 1.3;
+      margin-bottom: 14px;
+    }
+    .behance-sub {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 14.5px;
+      font-weight: 300;
+      color: var(--text-secondary);
+      line-height: 1.9;
+      margin-bottom: 40px;
+    }
+    .behance-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      padding: 14px 36px;
+      border: 1px solid var(--gold-dim);
+      border-radius: 2px;
+      font-size: 11.5px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      transition: background var(--t), border-color var(--t), box-shadow var(--t), color var(--t);
+    }
+    .behance-btn:hover {
+      background: rgba(139,104,18,0.07);
+      border-color: var(--gold);
+      box-shadow: 0 0 40px rgba(139,104,18,0.12);
+      color: var(--gold-warm);
+    }
+    .behance-btn svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
+
+    /* ══════════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════════ */
+    .footer {
+      background: var(--bg-dark);
+      border-top: 1px solid var(--border-dark);
+      padding: 56px 36px;
+    }
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .footer-brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 300;
+      letter-spacing: 0.08em;
+      color: var(--text-light-dim);
+      line-height: 1.5;
+    }
+    .footer-brand span { color: var(--gold-warm); }
+    .footer-details {
+      font-size: 12.5px;
+      line-height: 2.1;
+      color: rgba(176,160,136,0.55);
+      letter-spacing: 0.04em;
+    }
+    .footer-copy {
+      font-size: 11px;
+      color: rgba(176,160,136,0.3);
+      letter-spacing: 0.04em;
+      align-self: flex-end;
+    }
+
+    /* ══════════════════════════════════════════════
+       SCROLL REVEAL
+    ══════════════════════════════════════════════ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    .reveal.in { opacity: 1; transform: none; }
+    .delay-1 { transition-delay: 0.10s; }
+    .delay-2 { transition-delay: 0.20s; }
+    .delay-3 { transition-delay: 0.30s; }
+    .delay-4 { transition-delay: 0.42s; }
+    .delay-5 { transition-delay: 0.54s; }
+
+    /* ══════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      .hero-inner {
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: 36px;
+        padding-top: 80px;
+      }
+      .hero-poster { margin: 0 auto; }
+      .hero-eyebrow { justify-content: center; }
+      .hero-divider { margin: 20px auto; }
+      .hero-date-badge { justify-content: center; }
+      .info-grid { grid-template-columns: 1fr 1fr; }
+      .info-cell:nth-child(2) { border-right: none; }
+      .info-cell:nth-child(1),
+      .info-cell:nth-child(2) { border-bottom: 1px solid var(--border); }
+      .venue-grid { grid-template-columns: 1fr; }
+      .venue-copy { order: -1; }
+      .gallery-grid {
+        grid-template-columns: 1fr 1fr;
+        grid-auto-rows: 200px;
+      }
+      .gcard:nth-child(n) { grid-column: span 1; grid-row: span 1; }
+      .gcard:nth-child(1) { grid-column: span 2; }
+      .gcard:nth-child(8) { grid-column: span 2; }
+    }
+
+    @media (max-width: 640px) {
+      .section { padding: 72px 0; }
+      .container { padding: 0 20px; }
+      .nav-inner { padding: 14px 20px; }
+      .nav-meta { display: none; }
+      .info-grid { grid-template-columns: 1fr; }
+      .info-cell { border-right: none !important; border-bottom: 1px solid var(--border); }
+      .info-cell:last-child { border-bottom: none; }
+      .gallery-grid { grid-template-columns: 1fr; grid-auto-rows: 240px; }
+      .gcard:nth-child(n) { grid-column: span 1; }
+      .footer-inner { flex-direction: column; gap: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Navigation ──────────────────────────── -->
+  <nav class="nav" id="mainNav">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <span class="nav-brand-ko">이정신</span>
+        <div class="nav-sep"></div>
+        <span class="nav-brand-en">Rejuvenation</span>
+      </div>
+      <div class="nav-meta">2026. 6. 12 — 7. 10 &nbsp;·&nbsp; 경주 수오재</div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────── -->
+  <section class="hero" id="hero">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="hero-inner">
+      <div class="hero-poster">
+        <img src="poster.png" alt="REJUVENATION | 피어나다 전시 포스터 — 이정신" loading="eager">
+      </div>
+
+      <div class="hero-text">
+        <div class="hero-eyebrow">경주 수오재 30주년 기념 초대 개인전</div>
+        <h1>
+          <span class="hero-title-en">REJUVENATION</span>
+          <span class="hero-title-ko">피어나다</span>
+        </h1>
+        <div class="hero-divider"></div>
+        <div class="hero-artist">LEE, JUNG SHIN</div>
+        <div class="hero-date-badge">
+          <span>2026. 6. 12 (금)</span>
+          <span class="pip"></span>
+          <span>2026. 7. 10 (금)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-scroll">
+      <span>Scroll</span>
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- ── Invitation ──────────────────────────── -->
+  <section class="section section-alt" id="invitation">
+    <div class="container">
+      <div class="eyebrow reveal">
+        <div class="eyebrow-bar"></div>
+        <span class="eyebrow-text">초대의 글</span>
+      </div>
+      <div class="invitation-wrap">
+        <p class="invitation-headline reveal">시간의 흔적 위에,<br>다시 피어나다</p>
+        <div class="invitation-body">
+          <p class="reveal delay-1">
+            건립 30주년을 맞이한 경주 고택 수오재(守吾齋)에서 이정신 초대 개인전 &lt;Rejuvenation: 피어나다&gt;로 인사드립니다.
+          </p>
+          <p class="reveal delay-2">
+            '피어나다'는 잃어버렸던 본질적 생명력을 다시 찾아 새롭게 태어나는 '내면의 근본적인 회복'을 뜻합니다. 우리의 감성을 닮은 한지 위에 묵묵히 이어온 수행의 시간, 그 시간의 궤적 속에 스며든 내면의 치유와 창조적 에너지가 다시금 피어나는 순간이기도 합니다.
+          </p>
+          <p class="reveal delay-3">
+            은은한 옻칠화와 바람을 노래하는 한지 풍경 소리가 머무는 이곳에서, 지친 일상을 위로받고 새로운 생명력과 영감을 가득 채워 가시기를 기원합니다.
+          </p>
+          <p class="sign reveal delay-4">작가 이정신 드림</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Exhibition Info ─────────────────────── -->
+  <section class="section" id="info">
+    <div class="container">
+      <div class="eyebrow reveal">
+        <div class="eyebrow-bar"></div>
+        <span class="eyebrow-text">전시 정보</span>
+      </div>
+      <div class="info-grid reveal">
+        <div class="info-cell">
+          <div class="info-tag">타이틀</div>
+          <div class="info-val">REJUVENATION</div>
+          <div class="info-sub" style="color:var(--gold); letter-spacing:0.12em; margin-top:4px;">피어나다</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-tag">전시 기간</div>
+          <div class="info-val">2026년 6월 12일 (금)</div>
+          <div class="info-val">— 7월 10일 (금)</div>
+          <div class="opening-pill">오프닝 · 6. 14 (일) 오후 3시</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-tag">전시 장소</div>
+          <div class="info-val">수오재 한옥 갤러리</div>
+          <div class="info-sub">경주</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-tag">주최 · 주관</div>
+          <div class="info-val">수오재</div>
+          <div class="info-sub">한국옻칠문화예술협회</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Works Gallery ───────────────────────── -->
+  <section class="section section-alt" id="works">
+    <div class="container">
+      <div class="eyebrow reveal">
+        <div class="eyebrow-bar"></div>
+        <span class="eyebrow-text">전시 작품</span>
+      </div>
+      <div class="works-lead reveal">
+        <p>옻칠화와 한지 위에 담긴 우주적 생명력 — 이정신 작가의 <em>피어나다</em> 연작은 내면 깊숙이 잠들어 있던 빛을 다시 일깨웁니다.</p>
+      </div>
+
+      <div class="gallery-grid reveal">
+
+        <!-- 작품 이미지와 제목은 보도자료 PDF의 각 전시실 작품명으로 교체하세요 -->
+
+        <div class="gcard">
+          <!-- <img src="works/work-01.jpg" alt="작품명"> -->
+          <div class="gimg"></div>
+          <div class="placeholder-label">작품 01</div>
+          <div class="goverlap">
+            <div class="g-title">작품명을 입력하세요</div>
+            <div class="g-medium">옻칠화 · 한지</div>
+          </div>
+        </div>
+
+        <div class="gcard">
+          <div class="gimg"></div>
+          <div class="placeholder-label">작품 02</div>
+          <div class="goverlap">
+            <div class="g-title">작품명을 입력하세요</div>
+            <div class="g-medium">옻칠화 · 한지</div>
+          </div>
+        </div>
+
+        <div class="gcard">
+          <div class="gimg"></div>
+          <div class="placeholder-label">작품 03</div>
+          <div class="goverlap">
+            <div class="g-title">작품명을 입력하세요</div>
+            <div class="g-medium">옻칠화 · 한지</div>
+          </div>
+        </div>
+
+        <div class="gcard">
+          <div class="gimg"></div>
+          <div class="placeholder-label">작품 04</div>
+          <div class="goverlap">
+            <div class="g-title">작품명을 입력하세요</div>
+            <div class="g-medium">옻칠화 · 한지</div>
+          </div>
+        </div>
+
+        <div class="gcard">
+          <div class="gimg"></div>
+          <div class="placeholder-label">작품 05</div>
+          <div class="goverlap">
+            <div class="g-title">작품명을 입력하세요</div>
+            <div class="g-medium">옻칠화 · 한지</div>
+          </div>
+        </div>
+
+        <div class="gcard">
+          <div class="gimg"></div>
+          <div class="placeholder-label">작품 06</div>
+          <div class="goverlap">
+            <div class="g-title">작품명을 입력하세요</div>
+            <div class="g-medium">옻칠화 · 한지</div>
+          </div>
+        </div>
+
+        <div class="gcard">
+          <div class="gimg"></div>
+          <div class="placeholder-label">작품 07</div>
+          <div class="goverlap">
+            <div class="g-title">작품명을 입력하세요</div>
+            <div class="g-medium">옻칠화 · 한지</div>
+          </div>
+        </div>
+
+        <div class="gcard">
+          <div class="gimg"></div>
+          <div class="placeholder-label">작품 08</div>
+          <div class="goverlap">
+            <div class="g-title">작품명을 입력하세요</div>
+            <div class="g-medium">옻칠화 · 한지</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Venue — Suojae ──────────────────────── -->
+  <section class="section venue" id="venue">
+    <div class="container">
+      <div class="eyebrow reveal">
+        <div class="eyebrow-bar"></div>
+        <span class="eyebrow-text">전시 장소</span>
+      </div>
+      <div class="venue-grid">
+        <div class="venue-image-wrap reveal">
+          <!-- 수오재 전경 사진을 여기에 넣으세요 -->
+          <!-- <img src="works/suojae.jpg" alt="수오재 한옥 갤러리"> -->
+          <div class="venue-placeholder">
+            <div class="ph-icon">⌂</div>
+            <span>수오재 사진</span>
+          </div>
+        </div>
+        <div class="venue-copy reveal delay-2">
+          <h2>경주 고택<br><em>수오재</em></h2>
+          <p>
+            건립 30주년을 맞이한 수오재(守吾齋)는 경주에 자리한 전통 한옥 갤러리입니다.
+            고요한 한옥의 기품 속에서 이정신 작가의 옻칠화와 한지 작품이 시간의 흔적 위에 새롭게 피어납니다.
+          </p>
+          <div class="venue-hanja">守吾齋 · 수오재</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Behance ─────────────────────────────── -->
+  <section class="section section-alt" id="behance">
+    <div class="container">
+      <div class="behance-wrap reveal">
+        <div class="behance-kicker">작가 포트폴리오 · Behance</div>
+        <h2 class="behance-heading">Illuminating Aspiration</h2>
+        <p class="behance-sub">
+          이정신 작가의 Behance 포트폴리오에서<br>더 넓은 작품 세계를 만나보세요.
+        </p>
+        <a
+          href="https://www.behance.net/gallery/188589297/Illuminating-Aspiration"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="behance-btn"
+        >
+          <!-- Behance 'B' icon -->
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M22 7h-7V5h7v2zm1.726 10c-.442 1.297-2.029 3-5.101 3-3.074 0-5.564-1.729-5.564-5.675 0-3.91 2.325-5.92 5.466-5.92 3.082 0 4.964 1.782 5.375 4.426.078.506.109 1.188.095 2.14H15.97c.13 1.2.836 1.9 2.056 1.9.540 0 1.004-.237 1.300-.664l2.4.794zm-5.744-4.647c-.004-.96-.750-1.75-1.957-1.75-1.214 0-1.95.8-2.06 1.75h4.017zm-9.261 7H1.8V5h6.769c2.791.02 4.6.936 4.6 3.526 0 1.476-.782 2.464-2.003 2.945v.051c1.600.425 2.503 1.566 2.503 3.298C13.67 19.1 11.606 20.353 8.721 20.353zm-3.38-8.67h2.67c1.216 0 2.096-.6 2.096-1.723 0-1.175-.795-1.755-2.2-1.755H5.341v3.478zm3.083 5.43c1.432 0 2.27-.607 2.27-1.9 0-1.318-.875-1.955-2.393-1.955H5.341v3.855h3.083z"/>
+          </svg>
+          <span>Behance 보기</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ──────────────────────────────── -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        LEE, JUNG SHIN<br>
+        <span>REJUVENATION</span> | 피어나다
+      </div>
+      <div class="footer-details">
+        <div>수오재 한옥 갤러리 · 경주</div>
+        <div>2026. 6. 12 (금) — 7. 10 (금)</div>
+        <div>오프닝 2026. 6. 14 (일) 오후 3시</div>
+        <div style="margin-top:8px; opacity:0.7;">주최 수오재 | 주관 한국옻칠문화예술협회</div>
+      </div>
+      <div class="footer-copy">© 2026 Lee, Jung Shin. All rights reserved.</div>
+    </div>
+  </footer>
+
+  <script>
+    // nav scroll effect
+    const nav = document.getElementById('mainNav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 80);
+    }, { passive: true });
+
+    // scroll reveal via IntersectionObserver
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+
+</body>
+</html>
