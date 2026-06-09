@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Repeat, Check, X } from 'lucide-react';
 import { usePlayerStore } from '@/store/playerStore';
+import { sanitizeForOsmd } from '@/lib/sanitizeForOsmd';
 
 interface RegionRect { left: number; top: number; width: number; height: number; }
 
@@ -272,7 +273,16 @@ export default function ScoreRenderer({ xmlUrl, currentMeasure = 0, title }: Sco
       osmd.EngravingRules.RenderPartAbbreviations = false;
 
       try {
-        await osmd.load(xmlUrl);
+        // Fetch the XML ourselves so we can repair render-breaking artifacts
+        // (e.g. Audiveris' unmatched <octave-shift>) before handing it to OSMD.
+        // The downloaded / stored MusicXML stays the untouched original.
+        let source: string = xmlUrl;
+        try {
+          const res = await fetch(xmlUrl);
+          if (res.ok) source = sanitizeForOsmd(await res.text());
+        } catch { /* fall back to letting OSMD fetch the URL itself */ }
+        if (gen !== generationRef.current) return;
+        await osmd.load(source);
         if (gen !== generationRef.current) return;
         // On phones the default scale overflows and the staff is barely legible —
         // halve the score so a full line fits within the narrow viewport.

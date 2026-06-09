@@ -444,7 +444,7 @@ async function uploadToOmr(file: File): Promise<{ xml: string; engine: 'Audiveri
     '악보 인식 중...';
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-5">
+    <div className="h-full overflow-y-auto"><div className="max-w-2xl mx-auto p-6 space-y-5">
       <h1 className="text-xl font-bold">악보 인식</h1>
       <p className="text-muted-foreground text-sm">
         악보 이미지(PNG/JPG) 또는 PDF를 업로드하면 MusicXML로 변환합니다.
@@ -622,6 +622,7 @@ async function uploadToOmr(file: File): Promise<{ xml: string; engine: 'Audiveri
           </pre>
         </div>
       )}
+      </div>
     </div>
   );
 }
