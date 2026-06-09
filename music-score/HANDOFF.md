@@ -1,6 +1,6 @@
 # HANDOFF — music-platform
 
-_Last updated: 2026-06-05. Branch `master`. Latest commit `625430e` (loop-playback feature work, committed + pushed + deployed). Earlier OMR-accuracy changes — Current Progress items 2–5 — are also committed/deployed. Item 7 (OpenCV phone-photo normalization, all in `audiveris-omr/`) is **deployed to Railway & verified** but **not yet git-committed**._
+_Last updated: 2026-06-09. Branch `master`. Latest commit `8a5464f` (validation report panel + composer presets + score fallback — committed, **not yet pushed/deployed**). Item 7 (OpenCV phone-photo normalization) is committed (`940807f`) + deployed to Railway & verified. Earlier OMR-accuracy + loop-playback work (items 2–6) committed/deployed._
 
 ## Goal
 
@@ -256,6 +256,49 @@ still try Railway server-side for sub-4.5MB files, then Groq).
      Audiveris CLI options, but only after verifying flag names in-container
      (`Audiveris -help`).
 
+8. **(committed `8a5464f`, this session 2026-06-09 — NOT pushed/deployed yet) —
+   MusicXML validation report + composer presets + "score won't render but audio
+   plays" fix.** Three user-requested fixes on the result page. **Binding
+   constraints (still in effect): validation is RULE-BASED ONLY (no AI review);
+   the XML is NEVER mutated — download/render always use Audiveris' original.**
+   - **Rule-based validation layer** (new `src/lib/musicXmlValidator.ts`):
+     `validateMusicXml(xml) → { ok, warnings[] }`, `WarningKind =
+     'beat'|'range'|'key'|'duplicate'`. Does its OWN DOM walk (not
+     `parseMusicXml`, which merges parts & drops rests/voices/clefs/fifths).
+     Checks: per-voice **beat-sum** vs `divisions×beats×4/beat-type` (skips
+     first/last measure for anacrusis; tolerance 1 division); **range vs clef**
+     (generous MIDI ranges per G/F/C clef → octave-misread suspicion, info-level);
+     **cross-part key divergence** (two parts declare different `<fifths>` at the
+     same measure — the bug the user actually hit); **duplicate** (same
+     voice+onset+pitch). Read-only, never throws.
+   - **Validation report panel** (`src/app/omr/page.tsx`): grouped by kind with a
+     fixed header + a scrollable list (`max-h-72 overflow-y-auto`) so many
+     warnings don't overflow. Labeled "(자동 수정 안 함 · 다운로드는 원본 그대로)".
+   - **Composer presets** (`src/app/admin/page.tsx`): native `<datalist
+     id="composer-options">` with 10 famous composers (Beethoven, Mozart, Bach,
+     Chopin, Tchaikovsky, Schubert, Brahms, Vivaldi, Handel, Debussy) on the
+     composer `<input>`. Free-text entry preserved (controlled value/onChange).
+   - **"악보는 안 보이는데 음은 재생됨" root cause + fix** (`ScoreRenderer.tsx`):
+     **dual-consumer architecture** — visual render (OSMD, STRICT: throws
+     "createStaves on undefined" on incomplete clef/attributes/staff structure)
+     and audio (`MusicPlayer`'s `useTonePlayer`, which does its OWN fetch + LENIENT
+     `parseMusicXml`) are two independent consumers of the same `xmlUrl`. The
+     lenient parser yields playable notes even when OSMD's `render()` throws — so
+     audio works while nothing draws. Fix: when `loadError` is set AND
+     `parsedMeasures` has notes, render a fallback list (per-measure recognized
+     pitch names, `n.pitch` from `ParsedNote`) + an explanation that audio plays
+     because the player parses the same XML leniently; advise re-scanning a
+     sharper/front-on image. Empty/corrupt XML shows the plain error.
+   - `src/app/api/omr/route.ts`: pass through Audiveris `X-OMR-Staff` diagnostic
+     header.
+   - **Status: `npm run build` PASSED (Next 16.2.6 Turbopack, 7/7 static pages, no
+     TS/lint errors). Committed as `8a5464f` (5 files, +359/-12). NOT pushed, NOT
+     deployed.** A botched first commit (`a29daeb`) had a malformed subject from a
+     PowerShell here-string leaking into the Bash tool — fixed via `--amend` with a
+     bash heredoc; `8a5464f` is the clean one. **Git gotcha:** repo root is
+     `E:\project` (whole monorepo), so `git add -A` stages unrelated projects —
+     stage the specific music-score files only.
+
 ## What Worked
 
 - **Filling the 4.5MB budget with max quality** instead of a fixed low cap.
@@ -275,6 +318,14 @@ still try Railway server-side for sub-4.5MB files, then Groq).
 
 ## Next Steps
 
+00. **(item 8) Push + deploy when ready.** `8a5464f` is committed but NOT pushed
+    and NOT deployed. Push to `origin/master`, then `vercel deploy --prod --yes`
+    from `E:\project\music-score` (alias music-score-sigma.vercel.app). User asked
+    only to commit; confirm before pushing. After deploy, click-test the result
+    page: (a) validation panel renders + scrolls with many warnings, (b) clean
+    score shows "이상 없음", (c) composer field shows the 10-name dropdown yet
+    accepts free text, (d) on a score that fails to render, the recognized-notes
+    fallback list appears and audio still plays.
 0. **Loop feature (item 6) — still TO VERIFY interactively in the browser.** Code
    committed/pushed/deployed and serves 200, but the actual drag-select → loop
    playback wasn't click-tested this session. Open the prod app or local dev,
