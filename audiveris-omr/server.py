@@ -49,6 +49,13 @@ MAX_WIDTH = 2480
 # to re-enable the legacy adaptive threshold (useful only for A/B comparison).
 FORCE_BINARIZE = os.environ.get("OMR_FORCE_BINARIZE", "0") == "1"
 
+# Unsharp masking (Gaussian-blur subtract) crisps faint staff lines and stems before
+# Audiveris' own binarizer sees them, which the guide flags as a top recognition win.
+# Conservative parameters: over-sharpening amplifies sensor/JPEG speckle and *hurts*
+# binarization. On by default; set OMR_UNSHARP=0 for an A/B run without it. Never
+# applied on the already-thresholded "bin" renderer (double emphasis is counterproductive).
+UNSHARP = os.environ.get("OMR_UNSHARP", "1") == "1"
+
 # Audiveris' SCALE step recognizes a score best when the staff *interline* (the
 # vertical distance between two adjacent staff-line centers) is ~20px — the value a
 # clean 300-DPI scan produces. Interline is a physical print dimension, so the width
@@ -148,6 +155,17 @@ def load_oriented(input_path: str):
     return img, orig_size
 
 
+def _sharpen(img: Image.Image) -> Image.Image:
+    """Unsharp-mask a grayscale image to crisp faint staff lines/stems.
+
+    No-op when OMR_UNSHARP=0. Conservative radius/percent so we sharpen edges
+    without amplifying speckle into Audiveris' binarizer.
+    """
+    if not UNSHARP:
+        return img
+    return img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=80, threshold=3))
+
+
 def to_audiveris_png(img: Image.Image, output_path: str, force_binarize: bool = False) -> str:
     """Render a PIL image into the grayscale (or binarized) PNG Audiveris ingests.
 
@@ -172,9 +190,29 @@ def to_audiveris_png(img: Image.Image, output_path: str, force_binarize: bool = 
     img = img.convert("L")
     img = ImageOps.autocontrast(img, cutoff=2)
 
+    # Deskew the most common inputs (scans / screenshots / already-frontal photos)
+    # that take this gray path. Until now _deskew ran only on the photo renderer, so a
+    # slightly tilted scan lost accuracy at Audiveris' SCALE/Staff stages. Reuse the
+    # same guarded routine (0.3 deg dead-zone, <=15 deg cap); skip when cv2 is absent.
+    deskew_info = ""
+    if HAS_CV2:
+        rotated, angle = _deskew(np.asarray(img))
+        if angle:
+            img = Image.fromarray(rotated)
+            deskew_info = f" deskew{angle:+.1f}"
+
+    # Unsharp-mask before scaling so faint staff lines/stems survive binarization.
+    # Skip on the force_binarize path: that renderer thresholds the image itself, and
+    # sharpening before a hard threshold just amplifies speckle into the binary output.
+    sharp_info = ""
+    if not force_binarize:
+        img = _sharpen(img)
+        sharp_info = " sharp" if UNSHARP else ""
+
     # Scale so the staff interline lands near ~20px (Audiveris' SCALE sweet spot),
     # falling back to the width clamp when the interline can't be measured.
     img, scale_info = scale_for_audiveris(img)
+    scale_info = scale_info + deskew_info + sharp_info
     w, h = img.size
 
     if not force_binarize:
@@ -364,9 +402,11 @@ def render_photo_png(img: Image.Image, output_path: str) -> str:
     """photo_preprocess -> autocontrast -> resize -> save grayscale PNG for Audiveris."""
     proc, info = photo_preprocess(img)
     proc = ImageOps.autocontrast(proc.convert("L"), cutoff=2)
+    proc = _sharpen(proc)
     proc = _resize_for_audiveris(proc)
     proc.save(output_path, format="PNG")
-    return f"{info} final={proc.size}"
+    sharp_info = " sharp" if UNSHARP else ""
+    return f"{info}{sharp_info} final={proc.size}"
 
 
 def run_audiveris(input_path: str, output_dir: str):
@@ -398,6 +438,25 @@ def extract_musicxml(output_dir: str):
 
 def has_notes(xml: str) -> bool:
     return "<note " in xml or "<note>" in xml
+
+
+def staff_diagnostics(stdout: str) -> str:
+    """Pull Audiveris' SCALE/Staff/interline notes from its stdout (best-effort).
+
+    Returns a short ';'-joined digest for the X-OMR-Staff header so the quality of the
+    read is diagnosable from the client, or "" when nothing relevant was logged. Never
+    affects the pipeline — purely informational.
+    """
+    keys = ("interline", "scale", "staff", "no staff", "barline", "brace")
+    picks = []
+    for line in stdout.splitlines():
+        low = line.lower()
+        if any(k in low for k in keys):
+            # Drop the leading timestamp/level/logger prefix; keep the message tail.
+            msg = line.split(" - ", 1)[-1].strip() if " - " in line else line.strip()
+            if msg and msg not in picks:
+                picks.append(msg)
+    return "; ".join(picks)[:200]
 
 
 @app.get("/health")
@@ -476,14 +535,15 @@ async def omr(file: UploadFile = File(...)):
                 if result.returncode == 0:
                     xml = extract_musicxml(output_dir)
                     if xml and has_notes(xml):
-                        return PlainTextResponse(
-                            xml,
-                            headers={
-                                "X-OMR-Orient": orient_label,
-                                "X-OMR-Mode": mode_label,
-                                "X-OMR-Preprocess": render_info[:200],
-                            },
-                        )
+                        headers = {
+                            "X-OMR-Orient": orient_label,
+                            "X-OMR-Mode": mode_label,
+                            "X-OMR-Preprocess": render_info[:200],
+                        }
+                        staff = staff_diagnostics(result.stdout)
+                        if staff:
+                            headers["X-OMR-Staff"] = staff
+                        return PlainTextResponse(xml, headers=headers)
                     tail = (result.stdout + "\n" + result.stderr).strip()[-600:]
                     failures.append(
                         f"[{label} {render_info}] exit 0 but no notes produced. {tail}"
