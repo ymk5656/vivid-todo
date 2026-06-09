@@ -6,7 +6,7 @@ import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { getSupabase } from '@/lib/supabase';
-import { Server, Database } from 'lucide-react';
+import { Server, Database, Loader2 } from 'lucide-react';
 
 const FIFTHS_LABELS: [number, string][] = [
   [-5, 'Db장조 (-5♭)'],
@@ -88,7 +88,17 @@ async function pdfToPageBlobs(
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
-    await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport }).promise;
+    const ctx = canvas.getContext('2d')!;
+    // pdf.js renders with a TRANSPARENT backdrop by default. Audiveris/OpenCV read
+    // the page with cv2.imread (alpha dropped), so transparent pixels collapse to
+    // RGB (0,0,0) = black — the whole page goes dark and the black staff lines get
+    // swallowed, making binarization fail and the score "unreadable". Synthetic PDFs
+    // (MuseScore/Sibelius) hit this hardest because they're mostly transparent
+    // whitespace. Paint an explicit white page before rendering so the staves stay
+    // black-on-white. (Also pass background to pdf.js as belt-and-suspenders.)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvas, canvasContext: ctx, viewport, background: '#FFFFFF' }).promise;
     blobs.push(await encodeToFit(canvas, UPLOAD_BUDGET));
   }
 
@@ -112,7 +122,13 @@ async function prepareImageForUpload(file: File): Promise<File> {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const ctx = canvas.getContext('2d')!;
+  // Same transparent→black trap as PDF rendering: a transparent PNG (e.g. a cropped
+  // screenshot) would have its background collapse to black once alpha is dropped,
+  // breaking binarization. Lay down white first so the page stays black-on-white.
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
 
   const blob = await encodeToFit(canvas, UPLOAD_BUDGET);
@@ -169,6 +185,24 @@ export default function OmrPage() {
   const [railwayStatus, setRailwayStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [supabaseStatus, setSupabaseStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [omrEngine, setOmrEngine] = useState<'Audiveris' | 'Groq' | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  const isProcessing = status === 'converting' || status === 'uploading';
+
+  // Live elapsed-seconds counter while recognition runs. Audiveris can take up to
+  // ~2 minutes and the progress bar deliberately stalls at 85%, so a ticking counter
+  // is the clearest proof the job is still alive rather than frozen.
+  useEffect(() => {
+    if (!isProcessing) {
+      setElapsed(0);
+      return;
+    }
+    const started = Date.now();
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - started) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isProcessing]);
 
   useEffect(() => {
     // Check Railway OMR status
@@ -450,13 +484,19 @@ async function uploadToOmr(file: File): Promise<{ xml: string; engine: 'Audiveri
         <p className="text-xs text-muted-foreground mt-1">PNG, JPG, PDF 지원</p>
       </div>
 
-      {(status === 'converting' || status === 'uploading') && (
-        <div className="space-y-2">
+      {isProcessing && (
+        <div className="space-y-2 rounded-lg border bg-muted/20 p-4">
           <div className="flex justify-between text-sm">
-            <span>{statusLabel} {fileName}</span>
-            <span>{progress}%</span>
+            <span className="flex items-center gap-2 font-medium">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              {statusLabel} {fileName}
+            </span>
+            <span className="tabular-nums text-muted-foreground">{progress}%</span>
           </div>
           <Progress value={progress} />
+          <p className="text-xs text-muted-foreground">
+            <span className="tabular-nums font-medium text-foreground">{elapsed}초</span> 경과 · Audiveris 정밀 인식은 최대 2분까지 걸릴 수 있어요. 창을 닫지 말고 잠시만 기다려 주세요.
+          </p>
         </div>
       )}
 

@@ -49,6 +49,92 @@ MAX_WIDTH = 2480
 # to re-enable the legacy adaptive threshold (useful only for A/B comparison).
 FORCE_BINARIZE = os.environ.get("OMR_FORCE_BINARIZE", "0") == "1"
 
+# Audiveris' SCALE step recognizes a score best when the staff *interline* (the
+# vertical distance between two adjacent staff-line centers) is ~20px — the value a
+# clean 300-DPI scan produces. Interline is a physical print dimension, so the width
+# clamp above only approximates it: a cropped page or phone photo can sit at the same
+# pixel width yet a very different interline. We measure the real interline and scale
+# to hit this target (still capped by [MIN_WIDTH, MAX_WIDTH] so we never exceed ~300
+# DPI, where Audiveris' Grid step exhausts memory and errors out).
+TARGET_INTERLINE = 20.0
+
+
+def estimate_interline(gray: np.ndarray):
+    """Estimate the staff interline (px) via vertical run-length statistics.
+
+    Mirrors how Audiveris' SCALE step works: over many columns, the most frequent
+    short black vertical run is the staff-line thickness and the most frequent
+    interior white run is the within-staff gap; interline = thickness + gap. Returns
+    None when the image is too blank/noisy to trust, so the caller falls back to the
+    width-based DPI proxy instead of acting on a bad measurement.
+    """
+    if gray.ndim != 2:
+        return None
+    h, w = gray.shape
+    if h < 80 or w < 80:
+        return None
+    # Otsu split (ink = foreground). Measurement only — never fed to Audiveris.
+    _, binimg = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    ink = binimg > 0
+    # Sample up to ~300 evenly spaced columns; a full-width loop is needless here.
+    cols = np.linspace(0, w - 1, min(w, 300)).astype(int)
+    black_runs = []
+    white_runs = []
+    for x in cols:
+        col = ink[:, x]
+        bounds = np.concatenate(([0], np.flatnonzero(np.diff(col)) + 1, [h]))
+        runs = np.diff(bounds)
+        is_ink = col[bounds[:-1]]
+        for i, length in enumerate(runs):
+            if is_ink[i]:
+                black_runs.append(length)
+            elif 0 < i < len(runs) - 1:  # interior gaps only (skip top/bottom margin)
+                white_runs.append(length)
+
+    def _mode(values, max_len):
+        arr = np.fromiter((v for v in values if 1 <= v <= max_len), dtype=np.int32)
+        if arr.size < 50:
+            return None
+        return int(np.bincount(arr).argmax())
+
+    # Staff lines are thin (≤~12px even upscaled); within-staff gaps are ≤~60px.
+    line_thk = _mode(black_runs, 12)
+    gap = _mode(white_runs, 60)
+    if not line_thk or not gap:
+        return None
+    interline = float(line_thk + gap)
+    if interline < 5 or interline > 80:  # implausible — distrust it
+        return None
+    return interline
+
+
+def scale_for_audiveris(img: Image.Image):
+    """Resize a grayscale PIL image so its staff interline lands near ~20px.
+
+    Returns (image, info). Measures the real interline and scales toward
+    TARGET_INTERLINE, clamping the resulting width into [MIN_WIDTH, MAX_WIDTH] so we
+    stay near 300 DPI and never trip Audiveris' Grid step. Falls back to the legacy
+    width clamp when the interline can't be measured (blank/near-blank pages).
+    """
+    w, h = img.size
+    interline = estimate_interline(np.asarray(img))
+    if interline:
+        target_w = w * (TARGET_INTERLINE / interline)
+        new_w = int(min(MAX_WIDTH, max(MIN_WIDTH, round(target_w))))
+        if new_w != w:
+            img = img.resize((new_w, max(1, round(h * new_w / w))), Image.LANCZOS)
+        eff = interline * new_w / w
+        return img, f"interline {interline:.0f}->{eff:.0f}px w{w}->{new_w}"
+
+    # Unmeasurable: legacy width clamp (approximate ~300 DPI by pixel width).
+    if w < MIN_WIDTH:
+        scale = MIN_WIDTH / w
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+    elif w > MAX_WIDTH:
+        scale = MAX_WIDTH / w
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+    return img, f"width-clamp w{w}->{img.size[0]}"
+
 
 def load_oriented(input_path: str):
     """Open the image and apply EXIF orientation. Returns (PIL image, orig_size)."""
@@ -86,21 +172,16 @@ def to_audiveris_png(img: Image.Image, output_path: str, force_binarize: bool = 
     img = img.convert("L")
     img = ImageOps.autocontrast(img, cutoff=2)
 
+    # Scale so the staff interline lands near ~20px (Audiveris' SCALE sweet spot),
+    # falling back to the width clamp when the interline can't be measured.
+    img, scale_info = scale_for_audiveris(img)
     w, h = img.size
-    if w < MIN_WIDTH:
-        scale = MIN_WIDTH / w
-        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-        w, h = img.size
-    elif w > MAX_WIDTH:
-        scale = MAX_WIDTH / w
-        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-        w, h = img.size
 
     if not force_binarize:
         # Default: hand Audiveris a high-res grayscale image and let its own
         # binarizer do the thresholding. Preserves thin lines/stems best.
         img.save(output_path, format="PNG")
-        return f"final={img.size} binarize=off(grayscale)"
+        return f"final={img.size} {scale_info} binarize=off(grayscale)"
 
     # Legacy adaptive thresholding (OMR_FORCE_BINARIZE=1), kept for A/B comparison.
     # block_size scales dynamically with image width (~1.25% of width, odd number)
@@ -114,19 +195,12 @@ def to_audiveris_png(img: Image.Image, output_path: str, force_binarize: bool = 
     bin_arr = np.where(arr_img < (arr_bg - 9), 0, 255).astype(np.uint8)
     img_bin = Image.fromarray(bin_arr)
     img_bin.save(output_path, format="PNG")
-    return f"final={img_bin.size} binarize=on block={block_size}"
+    return f"final={img_bin.size} {scale_info} binarize=on block={block_size}"
 
 
 def _resize_for_audiveris(img: Image.Image) -> Image.Image:
-    """Clamp width into [MIN_WIDTH, MAX_WIDTH] so Audiveris sees ~300 DPI."""
-    w, h = img.size
-    if w < MIN_WIDTH:
-        scale = MIN_WIDTH / w
-        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-    elif w > MAX_WIDTH:
-        scale = MAX_WIDTH / w
-        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-    return img
+    """Scale so Audiveris sees a staff interline near ~20px (~300 DPI)."""
+    return scale_for_audiveris(img)[0]
 
 
 def _order_corners(pts: np.ndarray) -> np.ndarray:
