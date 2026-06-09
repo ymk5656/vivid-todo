@@ -6,7 +6,16 @@ import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { getSupabase } from '@/lib/supabase';
+import { validateMusicXml, type WarningKind } from '@/lib/musicXmlValidator';
 import { Server, Database, Loader2 } from 'lucide-react';
+
+// Korean labels + ordering for the validation report's grouped sections.
+const WARNING_KIND_LABELS: [WarningKind, string][] = [
+  ['beat', '마디 박자'],
+  ['range', '음정 범위'],
+  ['key', '조표'],
+  ['duplicate', '중복음'],
+];
 
 const FIFTHS_LABELS: [number, string][] = [
   [-5, 'Db장조 (-5♭)'],
@@ -250,6 +259,14 @@ export default function OmrPage() {
     if (keyOverride === null) return resultXml;
     return resultXml.replace(/<fifths>-?\d+<\/fifths>/g, `<fifths>${keyOverride}</fifths>`);
   }, [resultXml, keyOverride]);
+
+  // Rule-based quality report over Audiveris' ORIGINAL output (not the key-overridden
+  // copy): it flags what the recognizer actually produced — beat-sum, octave, key, and
+  // duplicate suspicions — without ever mutating the XML. Purely informational.
+  const validation = useMemo(() => {
+    if (!resultXml) return null;
+    return validateMusicXml(resultXml);
+  }, [resultXml]);
 
   // Update localStorage when user changes the key override
   useEffect(() => {
@@ -534,6 +551,48 @@ async function uploadToOmr(file: File): Promise<{ xml: string; engine: 'Audiveri
               <Button size="sm" variant="outline">악보 관리로 이동</Button>
             </Link>
           </div>
+
+          {validation && (
+            validation.ok ? (
+              <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800/50 dark:bg-green-900/20 dark:text-green-400">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                <span className="font-semibold">검증 통과 — 이상 없음</span>
+              </div>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/50 dark:bg-amber-900/20">
+                <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  검증 리포트 — {validation.warnings.length}건의 확인 필요 항목
+                  <span className="font-normal text-xs text-muted-foreground">(자동 수정 안 함 · 다운로드는 원본 그대로)</span>
+                </div>
+                {/* 경고가 많으면 패널이 화면을 넘어가므로 목록 영역만 스크롤한다 (헤더는 고정) */}
+                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {WARNING_KIND_LABELS.map(([kind, label]) => {
+                    const items = validation.warnings.filter((w) => w.kind === kind);
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={kind} className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground">{label} ({items.length})</div>
+                        <ul className="space-y-0.5 pl-1">
+                          {items.map((w, i) => (
+                            <li
+                              key={`${kind}-${i}`}
+                              className={`flex gap-2 text-xs ${w.severity === 'warn' ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}
+                            >
+                              {w.measure !== null && (
+                                <span className="shrink-0 tabular-nums font-medium">마디 {w.measure}</span>
+                              )}
+                              <span>{w.message}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )
+          )}
 
           {detectedFifths !== null && (
             <div className="flex items-center gap-2 text-sm">

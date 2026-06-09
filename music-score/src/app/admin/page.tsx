@@ -257,8 +257,22 @@ export default function AdminPage() {
               value={composer}
               onChange={(e) => setComposer(e.target.value)}
               placeholder="Beethoven"
+              list="composer-options"
               className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            {/* 유명 작곡가 제안 목록 — datalist라 자유 입력은 그대로 가능 */}
+            <datalist id="composer-options">
+              <option value="Ludwig van Beethoven" />
+              <option value="Wolfgang Amadeus Mozart" />
+              <option value="Johann Sebastian Bach" />
+              <option value="Frédéric Chopin" />
+              <option value="Pyotr Ilyich Tchaikovsky" />
+              <option value="Franz Schubert" />
+              <option value="Johannes Brahms" />
+              <option value="Antonio Vivaldi" />
+              <option value="George Frideric Handel" />
+              <option value="Claude Debussy" />
+            </datalist>
           </div>
         </div>
 

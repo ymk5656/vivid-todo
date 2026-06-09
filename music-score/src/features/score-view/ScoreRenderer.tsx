@@ -424,12 +424,52 @@ export default function ScoreRenderer({ xmlUrl, currentMeasure = 0, title }: Sco
       {title && (
         <h1 className="text-xl font-bold text-center text-gray-800 mb-4">{title}</h1>
       )}
-      {loadError && (
-        <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-4 text-destructive text-sm mb-4">
-          악보를 표시할 수 없습니다. 인식 결과가 비어 있거나 손상된 MusicXML입니다.
-          더 선명한 악보 이미지로 다시 인식해 주세요.
-        </div>
-      )}
+      {loadError && (() => {
+        // OSMD(악보 그리기 엔진)는 보표·음자리표 구조가 완전해야 렌더한다. 인식 결과가
+        // 구조적으로 불완전하면 render()가 던져 빈 화면이 된다. 반면 재생 엔진은 같은 XML을
+        // 너그럽게 파싱(parseMusicXml)해 음표만 뽑아내므로 "악보는 안 보여도 소리는 난다".
+        // 그래서 인식된 음표(parsedMeasures)가 있으면, 레이아웃 대신 음 이름이라도 보여준다.
+        const fallbackMeasures = (parsedMeasures ?? []).filter((m) => m.notes.length > 0);
+        const hasFallback = fallbackMeasures.length > 0;
+        return (
+          <div className="mb-4 space-y-3">
+            <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-4 text-destructive text-sm">
+              {hasFallback ? (
+                <>
+                  악보 이미지로는 그릴 수 없습니다. 인식 결과의 보표·음자리표 구조가 불완전해
+                  정식 악보 레이아웃을 만들 수 없습니다. <strong>음표 자체는 인식되어 아래 목록과
+                  같이 재생은 됩니다.</strong> 정확한 악보를 보려면 더 선명하고 정면에서 찍은(또는
+                  스캔한) 이미지로 다시 인식해 주세요.
+                </>
+              ) : (
+                <>
+                  악보를 표시할 수 없습니다. 인식 결과가 비어 있거나 손상된 MusicXML입니다.
+                  더 선명한 악보 이미지로 다시 인식해 주세요.
+                </>
+              )}
+            </div>
+            {hasFallback && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800">
+                <div className="mb-2 text-xs font-semibold text-gray-500">
+                  인식된 음표 (재생 가능 · 악보 미리보기 대용)
+                </div>
+                <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
+                  {fallbackMeasures.map((m) => (
+                    <div key={m.measureNumber} className="flex gap-2 text-sm">
+                      <span className="shrink-0 tabular-nums font-medium text-gray-400">
+                        마디 {m.measureNumber}
+                      </span>
+                      <span className="font-mono">
+                        {m.notes.map((n) => n.pitch).join(' ')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {/* 반복 구간 선택 토글 — 켜면 악보 위에서 드래그해 구간을 지정 */}
       <div className="flex items-center justify-end gap-2 mb-2">
         {/* 지정된 반복 구간이 있으면 해제 버튼을 노출 */}

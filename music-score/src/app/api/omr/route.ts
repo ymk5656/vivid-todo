@@ -71,12 +71,16 @@ export async function POST(req: NextRequest) {
       if (!hasNotes(xml)) {
         throw new Error('Audiveris가 음표를 인식하지 못함 (빈 결과)');
       }
-      return new NextResponse(xml, {
-        headers: {
-          'Content-Type': 'text/xml',
-          'X-OMR-Engine': 'Audiveris'
-        }
-      });
+      // Pass through Audiveris' best-effort SCALE/Staff diagnostics (interline,
+      // barline/brace notes) so the client can surface them for debugging. Optional —
+      // absent on older server builds.
+      const headers: Record<string, string> = {
+        'Content-Type': 'text/xml',
+        'X-OMR-Engine': 'Audiveris',
+      };
+      const staff = res.headers.get('X-OMR-Staff');
+      if (staff) headers['X-OMR-Staff'] = staff;
+      return new NextResponse(xml, { headers });
     } catch (e) {
       clearTimeout(timeoutId);
       console.warn(`Audiveris OMR 실패: ${e instanceof Error ? e.message : e}`);
