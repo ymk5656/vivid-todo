@@ -459,6 +459,75 @@ def staff_diagnostics(stdout: str) -> str:
     return "; ".join(picks)[:200]
 
 
+def score_musicxml(xml: str):
+    """Rule-based completeness score for one candidate read.
+
+    Returns (has_time, good_measures, note_units, total_measures). Compared as a
+    tuple, higher is better:
+      has_time      - 1 if a parseable time signature exists. Ranked first because
+                      a read with the time sig is far more useful (the downstream
+                      measure-duration repair needs it) -- a renderer that recovers
+                      more dots but drops the time sig must NOT outrank one that kept
+                      it.
+      good_measures - measures whose summed note duration equals the expected
+                      divisions*beats*4/beat-type. Correct structure beats raw count.
+      note_units    - notes + augmentation dots, the final tiebreak: among equally
+                      well-formed reads, prefer the one that captured the most
+                      symbols (this is where the dot-friendly 'bin' renderer wins).
+
+    'good_measures == total_measures' (with total>0 and has_time) means a perfect
+    read; the caller short-circuits on it so clean scans stay single-pass.
+    """
+    import re as _re
+    import xml.etree.ElementTree as _ET
+
+    try:
+        root = _ET.fromstring(_re.sub(r"<!DOCTYPE[^>]*>", "", xml))
+    except Exception:
+        return (0, 0, 0, 0)
+
+    notes = root.findall(".//note")
+    dots = sum(len(n.findall("dot")) for n in notes)
+    note_units = len(notes) + dots
+    total_measures = len(root.findall(".//measure"))
+
+    has_time = 0
+    good = 0
+    for part in root.findall(".//part"):
+        divisions = None
+        beats = beattype = None
+        for m in part.findall("measure"):
+            attr = m.find("attributes")
+            if attr is not None:
+                d = attr.find("divisions")
+                if d is not None and d.text and d.text.strip().isdigit():
+                    divisions = int(d.text)
+                t = attr.find("time")
+                if t is not None:
+                    b, bt = t.find("beats"), t.find("beat-type")
+                    if b is not None and bt is not None and b.text and bt.text:
+                        beats, beattype = int(b.text), int(bt.text)
+                        has_time = 1
+            if divisions and beats:
+                expected = divisions * beats * 4 // beattype
+                total = 0
+                for ch in m:
+                    if ch.tag == "note":
+                        if ch.find("chord") is not None:
+                            continue
+                        dur = ch.find("duration")
+                        total += int(dur.text) if dur is not None and dur.text else 0
+                    elif ch.tag == "backup":
+                        dur = ch.find("duration")
+                        total -= int(dur.text) if dur is not None and dur.text else 0
+                    elif ch.tag == "forward":
+                        dur = ch.find("duration")
+                        total += int(dur.text) if dur is not None and dur.text else 0
+                if total == expected:
+                    good += 1
+    return (has_time, good, note_units, total_measures)
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -511,9 +580,37 @@ async def omr(file: UploadFile = File(...)):
             renderers = [("bin", lambda w, p: to_audiveris_png(w, p, force_binarize=True))]
 
         failures = []
+        candidates = []  # successful reads, scored; we keep the most complete one
+
+        # The renderers are complementary: 'photo'/'gray' tend to nail the time
+        # signature and overall structure, while 'bin' (adaptive threshold) reads
+        # augmentation dots best. Returning on the FIRST renderer that produced any
+        # notes used to lock in a partial read and discard a better later one. So we
+        # now collect every renderer's read and pick the highest-scoring (see
+        # score_musicxml). To keep clean scans single-pass we short-circuit the
+        # moment a read is perfect (every measure's duration checks out), and once an
+        # orientation is known to work we stop re-trying the wrong orientations for
+        # the remaining renderers.
+        known_orient = None
+
+        def build_headers(cand):
+            h = {
+                "X-OMR-Orient": cand["orient"],
+                "X-OMR-Mode": cand["mode"],
+                "X-OMR-Preprocess": cand["info"][:200],
+                "X-OMR-Score": ",".join(str(x) for x in cand["score"]),
+            }
+            if cand["staff"]:
+                h["X-OMR-Staff"] = cand["staff"]
+            return h
 
         for mode_label, render in renderers:
-            for orient_label, angle in orientations:
+            orients = (
+                orientations
+                if known_orient is None
+                else [o for o in orientations if o[0] == known_orient]
+            )
+            for orient_label, angle in orients:
                 label = f"{orient_label}-{mode_label}"
                 work = base_img.rotate(-angle, expand=True) if angle else base_img
                 input_path = os.path.join(tmpdir, f"input_{label}.png")
@@ -535,15 +632,23 @@ async def omr(file: UploadFile = File(...)):
                 if result.returncode == 0:
                     xml = extract_musicxml(output_dir)
                     if xml and has_notes(xml):
-                        headers = {
-                            "X-OMR-Orient": orient_label,
-                            "X-OMR-Mode": mode_label,
-                            "X-OMR-Preprocess": render_info[:200],
+                        known_orient = orient_label  # lock in the working orientation
+                        score = score_musicxml(xml)
+                        cand = {
+                            "mode": mode_label,
+                            "orient": orient_label,
+                            "info": render_info,
+                            "staff": staff_diagnostics(result.stdout),
+                            "score": score,
+                            "xml": xml,
                         }
-                        staff = staff_diagnostics(result.stdout)
-                        if staff:
-                            headers["X-OMR-Staff"] = staff
-                        return PlainTextResponse(xml, headers=headers)
+                        candidates.append(cand)
+                        has_time, good, _units, total = score
+                        # Perfect read -> no later renderer can beat it; return now
+                        # so clean scans never pay for the extra passes.
+                        if has_time and total > 0 and good == total:
+                            return PlainTextResponse(xml, headers=build_headers(cand))
+                        break  # this renderer's read is in; move to the next renderer
                     tail = (result.stdout + "\n" + result.stderr).strip()[-600:]
                     failures.append(
                         f"[{label} {render_info}] exit 0 but no notes produced. {tail}"
@@ -551,6 +656,16 @@ async def omr(file: UploadFile = File(...)):
                 else:
                     combined = (result.stdout + "\n" + result.stderr).strip()
                     failures.append(f"[{label} {render_info}] exit {result.returncode}: {combined[-600:]}")
+
+        # At least one renderer produced notes -> return the most complete read.
+        if candidates:
+            best = max(candidates, key=lambda c: c["score"])
+            headers = build_headers(best)
+            # Record the also-rans so the choice is auditable from the response.
+            headers["X-OMR-Candidates"] = "; ".join(
+                f"{c['mode']}:{','.join(str(x) for x in c['score'])}" for c in candidates
+            )
+            return PlainTextResponse(best["xml"], headers=headers)
 
         # Every orientation+mode failed -> genuinely unreadable image. Report all
         # attempts so the failure is diagnosable (not truncated to one log).
