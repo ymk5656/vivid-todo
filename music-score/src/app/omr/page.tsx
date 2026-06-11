@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { getSupabase } from '@/lib/supabase';
 import { validateMusicXml, type WarningKind } from '@/lib/musicXmlValidator';
+import { repairMeasureDurations } from '@/lib/repairMeasureDuration';
 import { Server, Database, Loader2 } from 'lucide-react';
 
 // Korean labels + ordering for the validation report's grouped sections.
@@ -267,6 +268,16 @@ export default function OmrPage() {
     if (!resultXml) return null;
     return validateMusicXml(resultXml);
   }, [resultXml]);
+
+  // Measure-duration REPAIR over the (possibly key-overridden) XML, for the separate
+  // opt-in "박자 보정본" download. Pads short bars / trims over bars so every measure
+  // sums to its time signature — MuseScore then accepts a full bar's worth of edits
+  // instead of locking out beats. The canonical download above stays byte-identical;
+  // this is a distinct file the user chooses to grab for editing.
+  const repaired = useMemo(() => {
+    if (!effectiveXml) return null;
+    return repairMeasureDurations(effectiveXml);
+  }, [effectiveXml]);
 
   // Update localStorage when user changes the key override
   useEffect(() => {
@@ -547,6 +558,25 @@ async function uploadToOmr(file: File): Promise<{ xml: string; engine: 'Audiveri
             >
               MusicXML 다운로드
             </Button>
+            {repaired && repaired.changes.length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  const blob = new Blob([repaired.xml], { type: 'text/xml' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  const base = fileName?.replace(/\.[^.]+$/, '') ?? 'score';
+                  a.download = `${base}_fixed.xml`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                title="짧거나 넘치는 마디를 박자에 맞게 보정한 사본입니다. MuseScore에서 마디가 잠기지 않고 편집됩니다."
+              >
+                박자 보정본 다운로드 (MuseScore 편집용) · {repaired.changes.length}마디
+              </Button>
+            )}
             <Link href="/admin">
               <Button size="sm" variant="outline">악보 관리로 이동</Button>
             </Link>
@@ -563,7 +593,7 @@ async function uploadToOmr(file: File): Promise<{ xml: string; engine: 'Audiveri
                 <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
                   <span className="h-2 w-2 rounded-full bg-amber-500" />
                   검증 리포트 — {validation.warnings.length}건의 확인 필요 항목
-                  <span className="font-normal text-xs text-muted-foreground">(자동 수정 안 함 · 다운로드는 원본 그대로)</span>
+                  <span className="font-normal text-xs text-muted-foreground">(MusicXML 다운로드는 원본 그대로 · 박자 마디는 &apos;박자 보정본&apos;으로 편집 가능)</span>
                 </div>
                 {/* 경고가 많으면 패널이 화면을 넘어가므로 목록 영역만 스크롤한다 (헤더는 고정) */}
                 <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
