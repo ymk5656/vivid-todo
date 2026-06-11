@@ -1,6 +1,6 @@
 # HANDOFF — music-platform
 
-_Last updated: 2026-06-11. Branch `master` (item 11 committed locally as `1c37d94`; not yet pushed/deployed). This session added the measure-duration REPAIR feature — a downloadable, time-corrected MusicXML that opens as clean editable bars in MuseScore (item 11). Prior session added `08e641d` (OSMD octave-shift render repair — item 9) and `3befb60` (Phase A server preprocessing: gray/photo deskew + unsharp + `X-OMR-Staff` — item 10), both **pushed + deployed + live-verified**. Item 8 (`8a5464f`, validation report + composer presets + score fallback) is **pushed & deployed**. Earlier OMR-accuracy + loop-playback work (items 2–7) committed/deployed._
+_Last updated: 2026-06-11. Branch `master` (item 11 committed as `1c37d94`, **pushed `7645a9e` + Vercel prod deployed** — READY, music-score-sigma.vercel.app). Latest server change: **renderer scoring** in `audiveris-omr/server.py` (item 12, committed `b9835db`, deployed + verified on Railway). This session added the measure-duration REPAIR feature — a downloadable, time-corrected MusicXML that opens as clean editable bars in MuseScore (item 11). Prior session added `08e641d` (OSMD octave-shift render repair — item 9) and `3befb60` (Phase A server preprocessing: gray/photo deskew + unsharp + `X-OMR-Staff` — item 10), both **pushed + deployed + live-verified**. Item 8 (`8a5464f`, validation report + composer presets + score fallback) is **pushed & deployed**. Earlier OMR-accuracy + loop-playback work (items 2–7) committed/deployed._
 
 ## Goal
 
@@ -353,7 +353,7 @@ still try Railway server-side for sub-4.5MB files, then Groq).
       part of item 8 — **the whole `merry-swimming-cosmos.md` plan is now complete,
       deployed, and verified.**
 
-11. **(committed `1c37d94`, this session 2026-06-11 — NOT pushed/deployed yet) —
+11. **(committed `1c37d94`, pushed `7645a9e` + Vercel prod deployed 2026-06-11) —
     Downloadable measure-duration REPAIR for MuseScore editing.** User report: an
     OMR'd 6/8 score opened in MuseScore only accepts ~5/8 of notes per bar when
     edited — the rest spills into the next bar (and over-full bars overflow). Root
@@ -403,6 +403,53 @@ still try Railway server-side for sub-4.5MB files, then Groq).
     - **Honest limitation (told to user):** this fixes bar *lengths* (unlocks
       editing) but cannot recover the correct *rhythm* — padded rests / trimmed
       notes are placeholders the user still corrects by ear in MuseScore.
+
+12. **(committed `b9835db`, 2026-06-11 — renderer SCORING: pick the most complete
+    read instead of the first one with notes). DEPLOYED + VERIFIED on Railway.**
+    Root task all session: Audiveris drops augmentation DOTS on dotted notes
+    (dotted-quarter/eighth/sixteenth) → short bars → MuseScore edit overflow. The
+    renderer loop (item 7) returned on the FIRST renderer that produced ANY notes
+    (`has_notes()`), locking in a partial read and discarding strictly-better later
+    reads. Renderers are **complementary**: `photo`/`gray` nail the time signature +
+    structure; `bin` reads dots best. The fix scores every successful read and keeps
+    the most complete one. **All in `audiveris-omr/`, none in music-score.**
+    - **Option-1 experiment first (concluded negative-ish, reverted).** Pinned
+      `OMR_FORCE_BINARIZE=1` (bin-only) on the user's real failing 6/8 photo
+      (`silentnight.jpg`, 2314×3000, interline ~19–20px). Result: bin **recovers dots
+      8→14 (+75%)** and slightly more notes (102→104), BUT does **not** reduce bad
+      measures (22 either way) AND **regresses by losing the 6/8 `<time>` signature**
+      — which the downstream `repairMeasureDuration.ts` net needs. So bin-only is a
+      wash-to-regression → reverted `OMR_FORCE_BINARIZE=0`. (Gotcha during the test:
+      `count_xml.py` only checks bar durations when a `<time>` exists; bin had none so
+      it falsely reported "0 bad" — re-ran with a 6/8 override to expose the 22.)
+    - **`score_musicxml(xml)`** (new, inserted before `/health`): returns tuple
+      `(has_time, good_measures, note_units, total_measures)`. Strips DOCTYPE, parses
+      with ElementTree (`(0,0,0,0)` on parse failure). `note_units = len(notes) +
+      dots` (so dot recovery raises the score). Per measure: `expected =
+      divisions*beats*4//beattype`, sums note `<duration>` (skips `<chord>`, subtracts
+      `<backup>`, adds `<forward>`); `good_measures++` when `total == expected`;
+      `has_time=1` once a parseable `<time>` is seen. `re`/`xml.etree` imported
+      **locally** in the function (not at module level).
+    - **Renderer loop rewritten** (was: return on first `has_notes`). Now collects all
+      successful reads as scored `candidates`; a **perfect read** (`has_time and
+      total>0 and good==total`) short-circuits and returns immediately; otherwise after
+      the sweep `best = max(candidates, key=score)` is returned. **`has_time` ranked
+      FIRST in the tuple** so a dot-rich read that dropped the time sig can't outrank
+      one that kept it. Orientation is **locked** after the first read (`known_orient`)
+      so later renderers don't re-try all 3 angles. New response headers **`X-OMR-Score`**
+      (winner's tuple) and **`X-OMR-Candidates`** (every read's mode:score).
+    - **Deploy + verify (2026-06-11):** `railway up` → live. Re-ran the hard photo →
+      `x-omr-candidates: photo:1,4,110,26; gray:0,0,118,28; bin:0,0,118,28`,
+      `x-omr-mode: photo`. Scoring correctly picks **photo** (the only read with
+      `has_time=1`) over gray/bin (more note_units 118 but `has_time=0`) — i.e. it
+      refuses to trade the time signature for raw note count. `scored.xml` = valid 6/8,
+      102 notes / 8 dots / 26 measures. For THIS hard low-res photo scoring picks the
+      same read as before (no regression, no improvement); **the win is the general
+      case** where a later renderer yields a strictly-better read that the old
+      first-with-notes loop would have thrown away. Residual short bars on hard photos
+      remain covered by the downstream `repairMeasureDuration.ts` net (item 11).
+    - Scratch evidence lives in untracked `audiveris-omr/_omrtest/` (baseline/forcebin/
+      scored XML+headers, count/score scripts, dot-probe PNGs) — **not committed**.
 
 ## What Worked
 
