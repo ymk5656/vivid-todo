@@ -1,6 +1,6 @@
 # HANDOFF — music-platform
 
-_Last updated: 2026-06-09. Branch `master`. Latest commit `8a5464f` (validation report panel + composer presets + score fallback — committed, **not yet pushed/deployed**). Item 7 (OpenCV phone-photo normalization) is committed (`940807f`) + deployed to Railway & verified. Earlier OMR-accuracy + loop-playback work (items 2–6) committed/deployed._
+_Last updated: 2026-06-11. Branch `master` (item 11 committed locally as `1c37d94`; not yet pushed/deployed). This session added the measure-duration REPAIR feature — a downloadable, time-corrected MusicXML that opens as clean editable bars in MuseScore (item 11). Prior session added `08e641d` (OSMD octave-shift render repair — item 9) and `3befb60` (Phase A server preprocessing: gray/photo deskew + unsharp + `X-OMR-Staff` — item 10), both **pushed + deployed + live-verified**. Item 8 (`8a5464f`, validation report + composer presets + score fallback) is **pushed & deployed**. Earlier OMR-accuracy + loop-playback work (items 2–7) committed/deployed._
 
 ## Goal
 
@@ -292,12 +292,117 @@ still try Railway server-side for sub-4.5MB files, then Groq).
    - `src/app/api/omr/route.ts`: pass through Audiveris `X-OMR-Staff` diagnostic
      header.
    - **Status: `npm run build` PASSED (Next 16.2.6 Turbopack, 7/7 static pages, no
-     TS/lint errors). Committed as `8a5464f` (5 files, +359/-12). NOT pushed, NOT
-     deployed.** A botched first commit (`a29daeb`) had a malformed subject from a
+     TS/lint errors). Committed as `8a5464f` (5 files, +359/-12), and now PUSHED to
+     `origin/master` + DEPLOYED to Vercel prod (music-score-sigma.vercel.app) this
+     session.** A botched first commit (`a29daeb`) had a malformed subject from a
      PowerShell here-string leaking into the Bash tool — fixed via `--amend` with a
      bash heredoc; `8a5464f` is the clean one. **Git gotcha:** repo root is
      `E:\project` (whole monorepo), so `git add -A` stages unrelated projects —
      stage the specific music-score files only.
+
+9. **(committed `08e641d`, pushed + deployed 2026-06-09/10) — OSMD octave-shift
+   render repair.** Root cause of "audio plays but score won't draw" in a NEW case:
+   Audiveris occasionally emits an `<octave-shift>` "start" with no matching "stop"
+   (or vice-versa); OSMD's `calculateOctaveShifts` then dereferences an undefined
+   end timestamp and `render()` throws
+   `"Cannot read properties of undefined (reading 'realValue')"` → audio but no
+   visible score. Fix is **render-only, XML never mutated** (same binding constraint
+   as item 8):
+   - **`src/lib/sanitizeForOsmd.ts`** (new): `sanitizeForOsmd(xml)` parses to a DOM,
+     matches octave-shift starts→stops per `number` (bracket id) in document order,
+     removes ONLY unmatched directions (balanced 8va/8vb preserved), drops now-empty
+     `<direction-type>`/`<direction>` wrappers, re-serializes and restores the
+     `<?xml ?>` prolog (XMLSerializer drops it; OSMD's loader requires it). Operates
+     on an in-memory copy used purely for rendering — the downloaded/stored MusicXML
+     stays the untouched Audiveris original. Guarded: no-op if no `octave-shift`
+     token, on parse error, or on a `<parsererror>` node.
+   - **`src/features/score-view/ScoreRenderer.tsx`**: runs the fetched XML through
+     `sanitizeForOsmd` before handing it to OSMD; added a scroll wrapper.
+   - **`src/app/omr/page.tsx`**: wired the sanitize path into the result render.
+   - **Status: build clean, committed `08e641d`, pushed, Vercel prod deployed.**
+
+10. **(committed `3befb60`, pushed + deployed + verified 2026-06-10) — Phase A:
+    server preprocessing strengthening** (plan `merry-swimming-cosmos.md`, Phase A).
+    Closed the two gaps the plan identified in `audiveris-omr/server.py` — no new
+    deps (PIL `ImageFilter`/numpy/cv2 already imported), no new endpoints:
+    - **gray-path deskew:** `to_audiveris_png` now runs the existing `_deskew` on the
+      grayscale+autocontrast array (cv2-guarded, `HAS_CV2`) BEFORE
+      `scale_for_audiveris`, so the most common inputs (scans/screenshots) get tilt
+      correction too — not just the photo path. Emits a `deskew±X.X` token in
+      `X-OMR-Preprocess`. (Only fires on a genuinely tilted image that falls through
+      to the gray renderer; frontal PNGs win on `photo` first, so no deskew expected
+      there.)
+    - **unsharp mask:** new shared `_sharpen(img)` =
+      `UnsharpMask(radius=1.2, percent=80, threshold=3)` (conservative — over-sharpen
+      adds noise that hurts Audiveris' binarizer), applied to BOTH the gray
+      (`to_audiveris_png`, skipped when `force_binarize`) and photo
+      (`render_photo_png`) renderers before scaling; bin renderer excluded. Env
+      switch `OMR_UNSHARP` (default on, `=0` disables for A/B). Emits a `sharp` token.
+    - **`X-OMR-Staff` diagnostic header:** new `staff_diagnostics(stdout)` scrapes
+      Audiveris SCALE/interline/staff/barline/brace lines from stdout (≤200 chars,
+      header omitted if empty) so recognition quality can be diagnosed without
+      changing pipeline behavior. (`route.ts` already passes this header through —
+      item 8.)
+    - **Deploy + verify (2026-06-10):** `railway up --service audiveris-omr --detach`
+      → deployment `0e753dc1` SUCCESS, `/health` 200. POST `test-ode-to-joy.png` →
+      HTTP 200, 23 notes, valid MusicXML 4.0.3,
+      `x-omr-preprocess: photo[flat] sharp final=(2480, 1395)` (sharp confirmed),
+      `x-omr-staff` populated with Audiveris SCALE/Beam diagnostics (new header
+      confirmed). No regression. Phases B (`musicXmlValidator.ts`) and C (result-page
+      panel + `route.ts` header passthrough) of the same plan were already landed as
+      part of item 8 — **the whole `merry-swimming-cosmos.md` plan is now complete,
+      deployed, and verified.**
+
+11. **(committed `1c37d94`, this session 2026-06-11 — NOT pushed/deployed yet) —
+    Downloadable measure-duration REPAIR for MuseScore editing.** User report: an
+    OMR'd 6/8 score opened in MuseScore only accepts ~5/8 of notes per bar when
+    edited — the rest spills into the next bar (and over-full bars overflow). Root
+    cause is **Audiveris misreading note DURATIONS** (eighth↔quarter swaps, dropped
+    augmentation dots), so each measure's note/rest `<duration>` sum ≠ its declared
+    time signature; `<time>` and `<divisions>` themselves are correct. MuseScore
+    strictly enforces the meter, so SHORT bars lock out the missing beats and OVER
+    bars overflow. The *correct* rhythm is unrecoverable from OMR — but every bar
+    can be normalized to exactly its nominal length so it opens clean and editable.
+    **Binding constraints honored:** rule-based/deterministic only (no AI, no keys,
+    no cost/latency); the canonical "MusicXML 다운로드" stays byte-identical — repair
+    is a **separate, opt-in** download only; the in-app validator stays read-only.
+    - **`src/lib/repairMeasureDuration.ts`** (new, ~315 lines) — the *mutating*
+      counterpart to the read-only `musicXmlValidator.ts`, mirroring its parsing
+      conventions (DOMParser, `:scope > measure`, per-part divisions/beats/beat-type,
+      `expected = divisions×beats×4/beat-type`, chord = non-voice-advancing).
+      `repairMeasureDurations(xml) → { xml, changes: RepairChange[] }` where each
+      change is `{part, measure, voice, diffBeats, action:'padded'|'trimmed'}`.
+      - `buildComponents(divisions)`: note-type table (whole … 32nd, with dots),
+        `units = mult × divisions`, filtered to integer units, sorted largest-first
+        — so it's **divisions-aware**, not hardcoded.
+      - SHORT bars → append rests decomposed greedily into clean note types after
+        the last note (leftover that maps to no clean type becomes a duration-only
+        rest — valid MusicXML, `<type>` is optional).
+      - OVER bars → pop whole trailing note-groups (a non-chord note + its trailing
+        `<chord/>` siblings) while that doesn't undershoot, then clamp the new last
+        group's `<duration>`/`<type>`/`<dot>`; pad back with rests if it undershot.
+      - **Conservative scope:** skips measures with `<backup>`/`<forward>` (explicit
+        cursor moves) and any multi-voice measure — only the common single-voice OMR
+        melody case is touched, to avoid corrupting complex bars. Returns the input
+        unchanged (`changes: []`) on parse error, `<parsererror>`, or no-op.
+    - **`src/app/omr/page.tsx`**: memoized `repaired = repairMeasureDurations(effectiveXml)`
+      next to the existing `validation` memo; a new **"박자 보정본 다운로드 (MuseScore
+      편집용) · N마디"** secondary button appears **only when `repaired.changes.length > 0`**,
+      downloading `{base}_fixed.xml`. The original "MusicXML 다운로드" button is
+      untouched (still `effectiveXml`, byte-identical). Validation-panel note updated
+      to clarify: canonical download = original; meter-broken bars editable via the
+      "박자 보정본".
+    - **Verified against the user's real file** (`KakaoTalk_20260611_152339104.xml`:
+      2 parts, divisions=4, 6/8, 13 measures) by running the ACTUAL source `.ts` via
+      Node v24 native type-stripping + `linkedom` as `globalThis.DOMParser`:
+      **22 non-conforming measures → 0** after repair (both short, e.g. m1=9/12 &
+      m13=8/12, and over, e.g. m3=14/12 & m9=15/12), 22 changes applied, well-formed
+      output. `tsc --noEmit` clean. Test note: @xmldom/xmldom lacks `querySelector`
+      (only getElementsByTagName) — the browser and the validator use `querySelector`
+      fine, so `linkedom` was injected for the test harness, not a code change.
+    - **Honest limitation (told to user):** this fixes bar *lengths* (unlocks
+      editing) but cannot recover the correct *rhythm* — padded rests / trimmed
+      notes are placeholders the user still corrects by ear in MuseScore.
 
 ## What Worked
 
@@ -318,14 +423,23 @@ still try Railway server-side for sub-4.5MB files, then Groq).
 
 ## Next Steps
 
-00. **(item 8) Push + deploy when ready.** `8a5464f` is committed but NOT pushed
-    and NOT deployed. Push to `origin/master`, then `vercel deploy --prod --yes`
-    from `E:\project\music-score` (alias music-score-sigma.vercel.app). User asked
-    only to commit; confirm before pushing. After deploy, click-test the result
-    page: (a) validation panel renders + scrolls with many warnings, (b) clean
-    score shows "이상 없음", (c) composer field shows the 10-name dropdown yet
-    accepts free text, (d) on a score that fails to render, the recognized-notes
-    fallback list appears and audio still plays.
+_All committed/pushed/deployed work is done; the open items below are
+interactive/in-browser VERIFICATION only — nothing is blocked on code._
+
+00. **(items 8–10) Interactive verification on prod (music-score-sigma.vercel.app).**
+    Code is live; these were not click-tested this session. (a) **Validation panel**
+    (item 8): renders + scrolls with many warnings; clean score shows "이상 없음";
+    composer field shows the 10-name dropdown yet accepts free text; on a score that
+    fails to render, the recognized-notes fallback list appears and audio still plays.
+    (b) **Octave-shift repair** (item 9): upload a score that previously drew nothing
+    "but audio played" (unbalanced `<octave-shift>`) → confirm it now renders and the
+    downloaded XML is byte-identical to the Audiveris original. (c) **Phase A deskew**
+    (item 10): the `photo`/`gray` renderers short-circuit on frontal images, so to see
+    the `deskew±X.X` token fire you must upload a deliberately TILTED scan/screenshot
+    (one that falls through to the gray renderer) and watch `X-OMR-Preprocess`; also
+    spot-check `X-OMR-Staff` shows up in the response for diagnosing recognition
+    quality. A/B the unsharp step with `OMR_UNSHARP=0` on Railway if sharpening ever
+    looks like it's adding noise.
 0. **Loop feature (item 6) — still TO VERIFY interactively in the browser.** Code
    committed/pushed/deployed and serves 200, but the actual drag-select → loop
    playback wasn't click-tested this session. Open the prod app or local dev,
